@@ -238,21 +238,27 @@ export default function TourismRoutes() {
   const handleSubmitRoute = async () => {
     if (!userInfo) { addToast("请先登录", "error"); return; }
     try {
+      // Flatten routeDays into a flat items array as required by backend API
+      const items: any[] = [];
+      routeDays.forEach((day, dayIdx) => {
+        day.spots.forEach((s: any, si: number) => {
+          items.push({
+            spotId: s.spotId,
+            dayNumber: dayIdx + 1,
+            sortOrder: si + 1,
+            visitTime: s.visitTime || "09:00",
+            durationMinutes: s.durationMinutes || 120,
+            notes: s.notes || "",
+          });
+        });
+      });
+
       const payload: any = {
         title: routeForm.title,
         totalDays: routeDays.length,
         isPublic: routeForm.isPublic,
         coverImage: routeForm.coverImage,
-        days: routeDays.map((day, i) => ({
-          dayNumber: i + 1,
-          spots: day.spots.map((s: any, si: number) => ({
-            spotId: s.spotId,
-            visitTime: s.visitTime || "09:00",
-            durationMinutes: s.durationMinutes || 120,
-            notes: s.notes || "",
-            sortOrder: si + 1,
-          })),
-        })),
+        items,
       };
       if (routeForm.startDate) {
         payload.startDate = routeForm.startDate;

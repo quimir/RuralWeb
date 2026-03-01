@@ -329,6 +329,25 @@ export default function TourismDetail() {
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket) return;
+
+    // Date validation: prevent past dates
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedTicket.category === "ROOM") {
+      if (bookingForm.checkIn < today) {
+        setConfirmDialog({ isOpen: true, title: "入住日期不能早于今天，请重新选择日期。", onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })) });
+        return;
+      }
+      if (bookingForm.checkOut <= bookingForm.checkIn) {
+        setConfirmDialog({ isOpen: true, title: "退房日期必须晚于入住日期，请重新选择。", onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })) });
+        return;
+      }
+    } else {
+      if (bookingForm.visitDate < today) {
+        setConfirmDialog({ isOpen: true, title: "游玩日期不能早于今天，请重新选择日期。", onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })) });
+        return;
+      }
+    }
+
     setSubmittingBooking(true);
     try {
       const payload: any = {
@@ -477,7 +496,10 @@ export default function TourismDetail() {
         <div className="absolute bottom-4 right-4 flex items-center gap-3">
           <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm font-bold text-gray-900 flex items-center gap-1">
             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-            {spot.rating || 0}
+            {(spot.rating || (reviews.length > 0 ? (reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1) : 0))}
+            {(spot.reviewCount || reviews.length) > 0 && (
+              <span className="text-xs text-gray-500 font-normal ml-0.5">({spot.reviewCount || reviews.length}评)</span>
+            )}
           </div>
           <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm text-gray-700 flex items-center gap-1">
             <Eye className="w-4 h-4" />
@@ -788,17 +810,17 @@ export default function TourismDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">入住日期</label>
-                <input type="date" required className="w-full border border-gray-300 rounded-lg p-2" value={bookingForm.checkIn} onChange={e => setBookingForm({...bookingForm, checkIn: e.target.value})} />
+                <input type="date" required min={new Date().toISOString().split("T")[0]} className="w-full border border-gray-300 rounded-lg p-2" value={bookingForm.checkIn} onChange={e => setBookingForm({...bookingForm, checkIn: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">退房日期</label>
-                <input type="date" required className="w-full border border-gray-300 rounded-lg p-2" value={bookingForm.checkOut} onChange={e => setBookingForm({...bookingForm, checkOut: e.target.value})} />
+                <input type="date" required min={bookingForm.checkIn || new Date().toISOString().split("T")[0]} className="w-full border border-gray-300 rounded-lg p-2" value={bookingForm.checkOut} onChange={e => setBookingForm({...bookingForm, checkOut: e.target.value})} />
               </div>
             </div>
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">游玩日期</label>
-              <input type="date" required className="w-full border border-gray-300 rounded-lg p-2" value={bookingForm.visitDate} onChange={e => setBookingForm({...bookingForm, visitDate: e.target.value})} />
+              <input type="date" required min={new Date().toISOString().split("T")[0]} className="w-full border border-gray-300 rounded-lg p-2" value={bookingForm.visitDate} onChange={e => setBookingForm({...bookingForm, visitDate: e.target.value})} />
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
