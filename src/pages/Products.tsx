@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { formatCurrency } from "../lib/utils";
 import { ShoppingCart, Search, Filter, Plus, Trash2, X } from "lucide-react";
+import { ImageUpload } from "../components/ui/ImageUpload";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { motion, AnimatePresence } from "motion/react";
@@ -38,7 +39,7 @@ export default function Products() {
     stock: "",
     description: "",
     origin: "",
-    coverImage: "https://picsum.photos/seed/veg/400/400",
+    coverImage: "",
     categoryId: ""
   });
 
@@ -151,7 +152,7 @@ export default function Products() {
         ...newProduct,
         price: parseFloat(newProduct.price),
         stock: parseInt(newProduct.stock),
-        originalPrice: parseFloat(newProduct.price) * 1.2, // Mock original price
+        imageUrl: newProduct.coverImage || undefined,
         status: "ON_SALE",
         tags: tags.join(",")
       });
@@ -168,7 +169,7 @@ export default function Products() {
           stock: "",
           description: "",
           origin: "",
-          coverImage: "https://picsum.photos/seed/veg/400/400",
+          coverImage: "",
           categoryId: ""
         });
         setTags([]);
@@ -364,10 +365,7 @@ export default function Products() {
       )}
 
       {/* Add Product Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">发布新商品</h2>
+      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="发布新商品">
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">商品名称</label>
@@ -455,6 +453,14 @@ export default function Products() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">商品图片</label>
+                <ImageUpload
+                  value={newProduct.coverImage}
+                  onChange={(url) => setNewProduct({...newProduct, coverImage: url})}
+                  placeholder="上传商品图片"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
                 <textarea
                   required
@@ -480,9 +486,7 @@ export default function Products() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

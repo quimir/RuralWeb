@@ -238,19 +238,25 @@ export default function TourismRoutes() {
   const handleSubmitRoute = async () => {
     if (!userInfo) { addToast("请先登录", "error"); return; }
     try {
-      const payload = {
-        ...routeForm,
+      const payload: any = {
+        title: routeForm.title,
+        totalDays: routeDays.length,
+        isPublic: routeForm.isPublic,
+        coverImage: routeForm.coverImage,
         days: routeDays.map((day, i) => ({
           dayNumber: i + 1,
           spots: day.spots.map((s: any, si: number) => ({
             spotId: s.spotId,
-            visitTime: s.visitTime,
-            durationMinutes: s.durationMinutes,
-            notes: s.notes,
+            visitTime: s.visitTime || "09:00",
+            durationMinutes: s.durationMinutes || 120,
+            notes: s.notes || "",
             sortOrder: si + 1,
           })),
         })),
       };
+      if (routeForm.startDate) {
+        payload.startDate = routeForm.startDate;
+      }
 
       let res;
       if (editingRouteId) {
@@ -262,6 +268,7 @@ export default function TourismRoutes() {
       if (res.data.code === 200) {
         addToast(editingRouteId ? "路线更新成功" : "路线创建成功", "success");
         setShowCreateModal(false);
+        if (tab === "public") setTab("mine");
         fetchRoutes();
       } else {
         addToast(res.data.message || "操作失败", "error");

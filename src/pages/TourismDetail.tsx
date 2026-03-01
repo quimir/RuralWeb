@@ -4,7 +4,8 @@ import { api } from "../api/client";
 import { formatCurrency } from "../lib/utils";
 import {
   ArrowLeft, MapPin, Star, Heart, Eye, Clock, Phone, Calendar,
-  Send, Ticket, User, ChevronDown, ChevronUp, Edit, Trash2, Plus, Power
+  Send, Ticket, User, ChevronDown, ChevronUp, Edit, Trash2, Plus, Power,
+  CreditCard, Check, ShoppingBag
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useToast } from "../store/useToast";
@@ -66,6 +67,12 @@ export default function TourismDetail() {
   const [newTicket, setNewTicket] = useState({
     name: "", category: "TICKET", price: "", dailyQuota: "", description: ""
   });
+
+  // Payment Modal (after booking created)
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState<any>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   // Confirm
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, onConfirm: () => void}>({
@@ -154,8 +161,13 @@ export default function TourismDetail() {
     try {
       const res = await api.post(`/tourism/spots/${id}/favorite`);
       if (res.data.code === 200) {
-        setIsFavorited(!isFavorited);
-        addToast(isFavorited ? "已取消收藏" : "已收藏", "success");
+        const wasFavorited = isFavorited;
+        setIsFavorited(!wasFavorited);
+        setSpot((prev: any) => prev ? {
+          ...prev,
+          favoriteCount: Math.max(0, (prev.favoriteCount || 0) + (wasFavorited ? -1 : 1)),
+        } : prev);
+        addToast(wasFavorited ? "已取消收藏" : "已收藏", "success");
       }
     } catch (err) { addToast("操作失败", "error"); }
   };
@@ -334,27 +346,45 @@ export default function TourismDetail() {
         const bookingData = res.data?.data;
         setShowBookingModal(false);
         if (bookingData?.id) {
-          const doPay = window.confirm("预约成功！是否立即支付？");
-          if (doPay) {
-            try {
-              const payRes = await api.put(`/tourism/bookings/${bookingData.id}/pay`);
-              if (payRes.data.code === 200) {
-                addToast("支付成功！", "success");
-              } else {
-                addToast(payRes.data.message || "支付失败，请到个人中心-我的预约中完成支付", "error");
-              }
-            } catch {
-              addToast("支付失败，请到个人中心-我的预约中完成支付", "error");
-            }
-          } else {
-            addToast("预约成功，请到个人中心-我的预约中完成支付", "info");
-          }
+          setPendingBooking({
+            ...bookingData,
+            ticketName: selectedTicket.name,
+            ticketCategory: selectedTicket.category,
+            unitPrice: selectedTicket.price,
+            quantity: bookingForm.quantity,
+            totalAmount: selectedTicket.price * bookingForm.quantity * (selectedTicket.category === "ROOM" && bookingForm.checkIn && bookingForm.checkOut
+              ? Math.max(1, Math.ceil((new Date(bookingForm.checkOut).getTime() - new Date(bookingForm.checkIn).getTime()) / 86400000))
+              : 1),
+            visitDate: bookingForm.visitDate,
+            checkIn: bookingForm.checkIn,
+            checkOut: bookingForm.checkOut,
+            spotName: spot?.name,
+          });
+          setPaymentSuccess(false);
+          setShowPaymentModal(true);
         } else {
           addToast("预约成功！请到个人中心-我的预约中完成支付", "success");
         }
       } else { addToast(res.data.message || "预约失败", "error"); }
     } catch (err) { addToast("预约失败", "error"); }
     finally { setSubmittingBooking(false); }
+  };
+
+  const handlePayBooking = async () => {
+    if (!pendingBooking?.id) return;
+    setPaymentLoading(true);
+    try {
+      const payRes = await api.put(`/tourism/bookings/${pendingBooking.id}/pay`);
+      if (payRes.data.code === 200) {
+        setPaymentSuccess(true);
+      } else {
+        addToast(payRes.data.message || "支付失败", "error");
+      }
+    } catch {
+      addToast("支付失败，请稍后重试", "error");
+    } finally {
+      setPaymentLoading(false);
+    }
   };
 
   if (loading) return <div className="p-8 text-center">加载中...</div>;
@@ -453,6 +483,12 @@ export default function TourismDetail() {
             <Eye className="w-4 h-4" />
             {spot.viewCount || 0} 浏览
           </div>
+          {(spot.favoriteCount > 0 || isFavorited) && (
+            <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm text-gray-700 flex items-center gap-1">
+              <Heart className={`w-4 h-4 ${isFavorited ? 'text-red-500 fill-red-500' : ''}`} />
+              {spot.favoriteCount || 0} 收藏
+            </div>
+          )}
         </div>
       </div>
 
@@ -786,6 +822,124 @@ export default function TourismDetail() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Booking Payment Modal */}
+      <Modal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          if (!paymentLoading) {
+            setShowPaymentModal(false);
+            setPendingBooking(null);
+            setPaymentSuccess(false);
+          }
+        }}
+        title={paymentSuccess ? "支付成功" : "订单支付"}
+      >
+        {paymentSuccess ? (
+          <div className="text-center py-6 space-y-4">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-8 h-8 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">支付成功</h3>
+              <p className="text-sm text-gray-500 mt-1">您的预约已确认，祝您旅途愉快！</p>
+            </div>
+            {pendingBooking?.bookingCode && (
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                <p className="text-xs text-gray-500">预约码</p>
+                <p className="text-xl font-bold text-green-700 tracking-widest">{pendingBooking.bookingCode}</p>
+              </div>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => { setShowPaymentModal(false); setPendingBooking(null); setPaymentSuccess(false); }}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium"
+              >
+                继续浏览
+              </button>
+              <button
+                onClick={() => { setShowPaymentModal(false); setPendingBooking(null); setPaymentSuccess(false); navigate("/profile"); }}
+                className="flex-1 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium flex items-center justify-center gap-1"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                查看我的预约
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Booking Summary */}
+            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 space-y-2">
+              <h4 className="font-bold text-gray-900">{pendingBooking?.spotName}</h4>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{pendingBooking?.ticketName}</span>
+                <span className="text-gray-500">x{pendingBooking?.quantity}</span>
+              </div>
+              {pendingBooking?.visitDate && (
+                <div className="text-xs text-gray-500 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  游玩日期：{pendingBooking.visitDate}
+                </div>
+              )}
+              {pendingBooking?.checkIn && pendingBooking?.checkOut && (
+                <div className="text-xs text-gray-500 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  住宿：{pendingBooking.checkIn} ~ {pendingBooking.checkOut}
+                </div>
+              )}
+              {pendingBooking?.bookingCode && (
+                <div className="text-xs text-gray-500">预约码：{pendingBooking.bookingCode}</div>
+              )}
+            </div>
+
+            {/* Total Amount */}
+            <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+              <span className="text-gray-600 font-medium">应付金额</span>
+              <span className="text-2xl font-bold text-orange-600">
+                {formatCurrency(pendingBooking?.totalAmount || (pendingBooking?.unitPrice * pendingBooking?.quantity) || 0)}
+              </span>
+            </div>
+
+            {/* Simulated Payment Methods */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">选择支付方式</p>
+              {[
+                { name: "支付宝", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+                { name: "微信支付", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
+                { name: "银行卡支付", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
+              ].map((method, idx) => (
+                <label key={method.name} className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors hover:${method.bg} ${idx === 0 ? method.border + ' ' + method.bg : 'border-gray-100'}`}>
+                  <input type="radio" name="payMethod" defaultChecked={idx === 0} className="w-4 h-4 text-orange-600" />
+                  <CreditCard className={`w-5 h-5 ${method.color}`} />
+                  <span className="text-sm font-medium text-gray-900">{method.name}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setPendingBooking(null);
+                  addToast("预约成功，可在个人中心-我的预约中完成支付", "info");
+                }}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium"
+              >
+                稍后支付
+              </button>
+              <button
+                onClick={handlePayBooking}
+                disabled={paymentLoading}
+                className="flex-1 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 text-sm font-medium flex items-center justify-center gap-1"
+              >
+                <CreditCard className="w-4 h-4" />
+                {paymentLoading ? "处理中..." : "确认支付"}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Confirm Dialog */}
