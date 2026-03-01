@@ -13,26 +13,92 @@ interface ImageUploadProps {
 }
 
 /**
- * ImageUpload component - supports local file upload
+ * ImageUpload component - supports local file upload with backend fallback to base64
  *
- * Backend API suggestion:
- * POST /api/v1/upload/image
- * - Accept: multipart/form-data
- * - Field: "file" (the image file)
- * - Returns: { code: 200, data: { url: "https://...", filename: "..." } }
+ * ===== 后端接口规约 =====
  *
- * Spring Boot implementation example:
- * @PostMapping("/upload/image")
- * public Result<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
- *     // Save to local storage or cloud (e.g., Aliyun OSS, Minio)
- *     String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
- *     Path path = Paths.get("uploads/" + filename);
- *     Files.copy(file.getInputStream(), path);
- *     String url = "/uploads/" + filename;
- *     return Result.success(Map.of("url", url, "filename", filename));
+ * 接口地址: POST /api/v1/upload/image
+ * Content-Type: multipart/form-data
+ * 请求字段: "file" (图片文件, 支持 JPG/PNG/GIF, 最大 5MB)
+ * 认证: 需携带 Authorization: Bearer <token>
+ *
+ * 返回格式:
+ * {
+ *   "code": 200,
+ *   "message": "success",
+ *   "data": {
+ *     "url": "/uploads/a1b2c3d4_product.jpg",
+ *     "filename": "a1b2c3d4_product.jpg"
+ *   }
  * }
  *
- * Config: add resource handler for /uploads/** -> file:uploads/
+ * ===== Spring Boot 本地存储实现 =====
+ *
+ * 1. Controller:
+ *
+ * @RestController
+ * @RequestMapping("/api/v1/upload")
+ * public class FileUploadController {
+ *
+ *     @Value("${file.upload-dir:uploads}")
+ *     private String uploadDir;
+ *
+ *     @PostMapping("/image")
+ *     public Result<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+ *         // 校验文件类型
+ *         String contentType = file.getContentType();
+ *         if (contentType == null || !contentType.startsWith("image/")) {
+ *             return Result.fail(400, "只允许上传图片文件");
+ *         }
+ *         // 校验文件大小 (5MB)
+ *         if (file.getSize() > 5 * 1024 * 1024) {
+ *             return Result.fail(400, "图片大小不能超过5MB");
+ *         }
+ *         // 生成唯一文件名
+ *         String ext = file.getOriginalFilename() != null
+ *             ? file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."))
+ *             : ".jpg";
+ *         String filename = UUID.randomUUID().toString().replace("-", "") + ext;
+ *         // 按日期分目录存储
+ *         String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+ *         Path dir = Paths.get(uploadDir, dateDir);
+ *         Files.createDirectories(dir);
+ *         Path filePath = dir.resolve(filename);
+ *         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+ *         String url = "/uploads/" + dateDir + "/" + filename;
+ *         return Result.success(Map.of("url", url, "filename", filename));
+ *     }
+ * }
+ *
+ * 2. 静态资源映射 (WebMvcConfigurer):
+ *
+ * @Configuration
+ * public class WebMvcConfig implements WebMvcConfigurer {
+ *     @Value("${file.upload-dir:uploads}")
+ *     private String uploadDir;
+ *
+ *     @Override
+ *     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+ *         registry.addResourceHandler("/uploads/**")
+ *                 .addResourceLocations("file:" + uploadDir + "/");
+ *     }
+ * }
+ *
+ * 3. application.yml:
+ *
+ * file:
+ *   upload-dir: uploads
+ * spring:
+ *   servlet:
+ *     multipart:
+ *       max-file-size: 5MB
+ *       max-request-size: 10MB
+ *
+ * ===== 前端行为 =====
+ * - 优先尝试上传到后端 POST /api/v1/upload/image
+ * - 上传成功: 使用后端返回的 url 作为图片地址
+ * - 上传失败(后端未实现): 自动降级为 base64 Data URL 本地预览模式
+ * - 同时支持直接输入图片URL
  */
 export function ImageUpload({
   value,

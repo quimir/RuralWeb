@@ -747,16 +747,20 @@ export default function Profile() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {favorites.map((fav) => (
-                    <div key={fav.id} className="border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow group">
+                    <div
+                      key={fav.id}
+                      className="border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+                      onClick={() => navigate(`/tourism/${fav.spotId || fav.id}`)}
+                    >
                       <div className="h-32 bg-gray-100 relative">
                         <img
                           src={fav.coverImage || fav.spotCoverImage || "https://picsum.photos/seed/spot/400/200"}
                           alt={fav.spotName || fav.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           referrerPolicy="no-referrer"
                         />
                         <button
-                          onClick={() => handleRemoveFavorite(fav.spotId || fav.id)}
+                          onClick={(e) => { e.stopPropagation(); handleRemoveFavorite(fav.spotId || fav.id); }}
                           className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full text-red-500 hover:bg-red-50 transition-colors"
                           title="取消收藏"
                         >
@@ -764,10 +768,7 @@ export default function Profile() {
                         </button>
                       </div>
                       <div className="p-3">
-                        <h4
-                          className="font-bold text-gray-900 cursor-pointer hover:text-orange-600 transition-colors"
-                          onClick={() => navigate(`/tourism/${fav.spotId || fav.id}`)}
-                        >
+                        <h4 className="font-bold text-gray-900 group-hover:text-orange-600 transition-colors">
                           {fav.spotName || fav.name}
                         </h4>
                         <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
