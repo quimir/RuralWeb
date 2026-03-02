@@ -135,19 +135,27 @@ export const useCartStore = create<CartState>((set) => ({
     api.put(`/cart/${id}`, { quantity }).catch(() => {});
   },
 
-  toggleSelect: (id) =>
-    set((state) =>
-      calculateTotals(
+  toggleSelect: (id) => {
+    set((state) => {
+      const item = state.items.find((i) => i.id === id);
+      const newSelected = item ? !item.selected : true;
+      // Sync selected state to backend
+      api.put(`/cart/${id}`, { selected: newSelected }).catch(() => {});
+      return calculateTotals(
         state.items.map((i) =>
-          i.id === id ? { ...i, selected: !i.selected } : i,
+          i.id === id ? { ...i, selected: newSelected } : i,
         ),
-      ),
-    ),
+      );
+    });
+  },
 
-  selectAll: (selected) =>
+  selectAll: (selected) => {
+    // Sync select-all state to backend
+    api.put("/cart/select-all", { selected }).catch(() => {});
     set((state) =>
       calculateTotals(state.items.map((i) => ({ ...i, selected }))),
-    ),
+    );
+  },
 
   clearCart: () =>
     set({ items: [], totalCount: 0, selectedCount: 0, selectedAmount: 0 }),

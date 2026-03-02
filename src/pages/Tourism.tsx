@@ -43,6 +43,9 @@ export default function Tourism() {
     endDate: "",
   });
 
+  // Featured Route
+  const [featuredRoute, setFeaturedRoute] = useState<any>(null);
+
   // Admin Audit
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const [pendingSpots, setPendingSpots] = useState<any[]>([]);
@@ -64,7 +67,20 @@ export default function Tourism() {
 
   useEffect(() => {
     fetchSpots();
+    fetchFeaturedRoute();
   }, [typeFilter]);
+
+  const fetchFeaturedRoute = async () => {
+    try {
+      const res = await api.get("/tourism/routes/public?page=1&size=1");
+      const routes = res.data?.data?.records || [];
+      if (routes.length > 0) {
+        setFeaturedRoute(routes[0]);
+      }
+    } catch {
+      // Ignore - featured route is optional
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,33 +234,38 @@ export default function Tourism() {
       </div>
 
       {/* Featured Route */}
-      <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100 flex flex-col md:flex-row gap-6 items-center">
-        <div className="flex-1 space-y-4">
-          <div className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
-            本周推荐路线
+      {featuredRoute && (
+        <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100 flex flex-col md:flex-row gap-6 items-center">
+          <div className="flex-1 space-y-4">
+            <div className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
+              热门推荐路线
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {featuredRoute.title}
+            </h2>
+            <p className="text-gray-600 text-sm">
+              {featuredRoute.totalDays}天行程
+              {featuredRoute.startDate && ` · 出发: ${featuredRoute.startDate}`}
+              {featuredRoute.copyCount > 0 && ` · ${featuredRoute.copyCount}人引用`}
+              {featuredRoute.creatorName && ` · by ${featuredRoute.creatorName}`}
+            </p>
+            <button
+              onClick={() => navigate("/tourism/routes")}
+              className="px-5 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors shadow-sm"
+            >
+              查看路线详情
+            </button>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            烟台周末亲子两日游
-          </h2>
-          <p className="text-gray-600 text-sm">
-            包含草莓采摘、农家美食、生态公园徒步，适合全家出游，放松身心。
-          </p>
-          <button
-            onClick={() => navigate("/tourism/routes")}
-            className="px-5 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors shadow-sm"
-          >
-            查看路线详情
-          </button>
+          <div className="w-full md:w-1/3 aspect-video md:aspect-auto md:h-40 rounded-xl overflow-hidden">
+            <img
+              src={featuredRoute.coverImage || "https://picsum.photos/seed/route1/800/400"}
+              alt={featuredRoute.title}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
         </div>
-        <div className="w-full md:w-1/3 aspect-video md:aspect-auto md:h-40 rounded-xl overflow-hidden">
-          <img
-            src="https://picsum.photos/seed/route1/800/400"
-            alt="Route"
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      </div>
+      )}
 
       <h2 className="text-xl font-bold text-gray-900 pt-4">热门景点</h2>
 
@@ -288,7 +309,8 @@ export default function Tourism() {
                 </div>
                 <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-md text-xs font-bold text-gray-900 flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                  {spot.rating || 0} ({spot.reviewCount || 0})
+                  {spot.averageRating ?? spot.rating ?? 0}
+                  <span className="font-normal text-gray-500">({spot.reviewCount || 0}评)</span>
                 </div>
               </div>
 
