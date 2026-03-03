@@ -73,6 +73,12 @@ export default function Profile() {
   const isConsumer = role && ["TOURIST", "FARMER", "MERCHANT"].includes(role);
 
   useEffect(() => {
+    if (!userInfo) {
+      navigate("/login");
+    }
+  }, [userInfo, navigate]);
+
+  useEffect(() => {
     if (activeTab === "orders") {
       fetchOrders();
     } else if (activeTab === "bookings") {
