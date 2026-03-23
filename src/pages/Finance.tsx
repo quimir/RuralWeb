@@ -91,8 +91,8 @@ export default function Finance() {
   const [showPublishLoanModal, setShowPublishLoanModal] = useState(false);
   const [editingLoanId, setEditingLoanId] = useState<number | null>(null);
   const [loanProductForm, setLoanProductForm] = useState({
-    name: "", type: "CROP_LOAN", description: "", maxAmount: "",
-    interestRate: "", termMonths: "", minCreditScore: "40",
+    name: "", type: "CROP_LOAN", description: "", minAmount: "", maxAmount: "",
+    annualRate: "", minTermMonths: "", maxTermMonths: "", minCreditScore: "40",
   });
 
   // Provider: publish insurance product
@@ -199,8 +199,8 @@ export default function Finance() {
     }
 
     // Validate term
-    if (selectedLoanProduct.termMonths && term > selectedLoanProduct.termMonths) {
-      addToast(`申请期限不能超过最长期限 ${selectedLoanProduct.termMonths} 个月`, "error");
+    if (selectedLoanProduct.maxTermMonths && term > selectedLoanProduct.maxTermMonths) {
+      addToast(`申请期限不能超过最长期限 ${selectedLoanProduct.maxTermMonths} 个月`, "error");
       return;
     }
 
@@ -283,14 +283,16 @@ export default function Finance() {
         name: product.name || "",
         type: product.type || "CROP_LOAN",
         description: product.description || "",
+        minAmount: product.minAmount?.toString() || "",
         maxAmount: product.maxAmount?.toString() || "",
-        interestRate: product.interestRate?.toString() || "",
-        termMonths: product.termMonths?.toString() || "",
+        annualRate: product.annualRate?.toString() || "",
+        minTermMonths: product.minTermMonths?.toString() || "",
+        maxTermMonths: product.maxTermMonths?.toString() || "",
         minCreditScore: product.minCreditScore?.toString() || "40",
       });
     } else {
       setEditingLoanId(null);
-      setLoanProductForm({ name: "", type: "CROP_LOAN", description: "", maxAmount: "", interestRate: "", termMonths: "", minCreditScore: "40" });
+      setLoanProductForm({ name: "", type: "CROP_LOAN", description: "", minAmount: "", maxAmount: "", annualRate: "", minTermMonths: "", maxTermMonths: "", minCreditScore: "40" });
     }
     setShowPublishLoanModal(true);
   };
@@ -300,9 +302,11 @@ export default function Finance() {
     try {
       const payload = {
         ...loanProductForm,
+        minAmount: parseFloat(loanProductForm.minAmount),
         maxAmount: parseFloat(loanProductForm.maxAmount),
-        interestRate: parseFloat(loanProductForm.interestRate),
-        termMonths: parseInt(loanProductForm.termMonths),
+        annualRate: parseFloat(loanProductForm.annualRate),
+        minTermMonths: parseInt(loanProductForm.minTermMonths),
+        maxTermMonths: parseInt(loanProductForm.maxTermMonths),
         minCreditScore: parseInt(loanProductForm.minCreditScore),
       };
       let res;
@@ -602,11 +606,11 @@ export default function Finance() {
                     )}
                     <div>
                       <div className="text-xs text-gray-500 mb-1">年化利率</div>
-                      <div className="text-lg font-bold text-gray-900">{loan.interestRate}%</div>
+                      <div className="text-lg font-bold text-gray-900">{loan.annualRate}%</div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">最长期限</div>
-                      <div className="text-lg font-bold text-gray-900">{loan.termMonths}个月</div>
+                      <div className="text-lg font-bold text-gray-900">{loan.maxTermMonths}个月</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-gray-50">
@@ -794,10 +798,10 @@ export default function Finance() {
                        policy.status === "CANCELLED" ? "已取消" : policy.status}
                     </span>
                   </div>
-                  {policy.startDate && (
+                  {(policy.effectiveDate || policy.startDate) && (
                     <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
-                      保障期：{policy.startDate} ~ {policy.endDate}
+                      保障期：{policy.effectiveDate || policy.startDate} ~ {policy.expiryDate || policy.endDate}
                       {policy.durationMonths && ` (${policy.durationMonths}个月)`}
                     </p>
                   )}
@@ -842,7 +846,7 @@ export default function Finance() {
                     <div>
                       <h4 className="font-bold text-gray-900">{product.name}</h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        {LOAN_TYPES[product.type] || product.type} · 最高{(product.maxAmount || 0) / 10000}万 · {product.interestRate}%利率
+                        {LOAN_TYPES[product.type] || product.type} · 最高{(product.maxAmount || 0) / 10000}万 · {product.annualRate}%利率
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -987,8 +991,8 @@ export default function Finance() {
             {selectedLoanProduct?.minAmount && (
               <div className="flex justify-between"><span className="text-gray-600">最低申请金额</span><span className="font-bold">{formatCurrency(selectedLoanProduct.minAmount)}</span></div>
             )}
-            <div className="flex justify-between"><span className="text-gray-600">年化利率</span><span className="font-bold">{selectedLoanProduct?.interestRate}%</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">最长期限</span><span className="font-bold">{selectedLoanProduct?.termMonths} 个月</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">年化利率</span><span className="font-bold">{selectedLoanProduct?.annualRate}%</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">最长期限</span><span className="font-bold">{selectedLoanProduct?.maxTermMonths} 个月</span></div>
             <div className="flex justify-between"><span className="text-gray-600">最低信用分要求</span><span className="font-bold">{selectedLoanProduct?.minCreditScore} 分</span></div>
           </div>
 
@@ -1039,24 +1043,24 @@ export default function Finance() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               申请期限 (月)
-              {selectedLoanProduct?.termMonths && (
-                <span className="text-xs text-gray-400 ml-2">最长 {selectedLoanProduct.termMonths} 个月</span>
+              {selectedLoanProduct?.maxTermMonths && (
+                <span className="text-xs text-gray-400 ml-2">最长 {selectedLoanProduct.maxTermMonths} 个月</span>
               )}
             </label>
-            <input type="number" required min={1}
-              max={selectedLoanProduct?.termMonths || undefined}
+            <input type="number" required min={selectedLoanProduct?.minTermMonths || 1}
+              max={selectedLoanProduct?.maxTermMonths || undefined}
               className="w-full border border-gray-300 rounded-lg p-2"
               value={loanApplyForm.termMonths} onChange={e => setLoanApplyForm({...loanApplyForm, termMonths: e.target.value})} />
           </div>
 
           {/* Estimated monthly payment */}
-          {loanApplyForm.amount && loanApplyForm.termMonths && selectedLoanProduct?.interestRate && (
+          {loanApplyForm.amount && loanApplyForm.termMonths && selectedLoanProduct?.annualRate && (
             <div className="bg-gray-50 rounded-lg p-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">预估月还款额</span>
                 <span className="font-bold text-blue-700">
                   {formatCurrency(
-                    (parseFloat(loanApplyForm.amount) * (1 + selectedLoanProduct.interestRate / 100 * parseInt(loanApplyForm.termMonths) / 12)) / parseInt(loanApplyForm.termMonths)
+                    (parseFloat(loanApplyForm.amount) * (1 + selectedLoanProduct.annualRate / 100 * parseInt(loanApplyForm.termMonths) / 12)) / parseInt(loanApplyForm.termMonths)
                   )}
                 </span>
               </div>
@@ -1123,6 +1127,18 @@ export default function Finance() {
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">年化利率 (%)</label>
+              <input type="number" required step="0.01" className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.annualRate} onChange={e => setLoanProductForm({...loanProductForm, annualRate: e.target.value})} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">最低额度 (元)</label>
+              <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.minAmount} onChange={e => setLoanProductForm({...loanProductForm, minAmount: e.target.value})} placeholder="如：5000" />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">最高额度 (元)</label>
               <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
                 value={loanProductForm.maxAmount} onChange={e => setLoanProductForm({...loanProductForm, maxAmount: e.target.value})} />
@@ -1130,14 +1146,14 @@ export default function Finance() {
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">年化利率 (%)</label>
-              <input type="number" required step="0.01" className="w-full border border-gray-300 rounded-lg p-2"
-                value={loanProductForm.interestRate} onChange={e => setLoanProductForm({...loanProductForm, interestRate: e.target.value})} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">最短期限 (月)</label>
+              <input type="number" required min={1} className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.minTermMonths} onChange={e => setLoanProductForm({...loanProductForm, minTermMonths: e.target.value})} placeholder="如：3" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">期限 (月)</label>
-              <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
-                value={loanProductForm.termMonths} onChange={e => setLoanProductForm({...loanProductForm, termMonths: e.target.value})} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">最长期限 (月)</label>
+              <input type="number" required min={1} className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.maxTermMonths} onChange={e => setLoanProductForm({...loanProductForm, maxTermMonths: e.target.value})} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">最低信用分</label>
@@ -1189,22 +1205,22 @@ export default function Finance() {
               )}
               <div>
                 <div className="text-xs text-gray-500 mb-1">年化利率</div>
-                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.interestRate}%</div>
+                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.annualRate}%</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">最长期限</div>
-                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.termMonths} 个月</div>
+                <div className="text-xs text-gray-500 mb-1">贷款期限</div>
+                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.minTermMonths} ~ {loanDetailProduct.maxTermMonths} 个月</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">最低信用分要求</div>
                 <div className="text-xl font-bold text-gray-900">{loanDetailProduct.minCreditScore} 分</div>
               </div>
-              {loanDetailProduct.interestRate && loanDetailProduct.termMonths && loanDetailProduct.maxAmount && (
+              {loanDetailProduct.annualRate && loanDetailProduct.maxTermMonths && loanDetailProduct.maxAmount && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1">满额月还款参考</div>
                   <div className="text-sm font-bold text-blue-700">
                     ≈ {formatCurrency(
-                      (loanDetailProduct.maxAmount * (1 + loanDetailProduct.interestRate / 100 * loanDetailProduct.termMonths / 12)) / loanDetailProduct.termMonths
+                      (loanDetailProduct.maxAmount * (1 + loanDetailProduct.annualRate / 100 * loanDetailProduct.maxTermMonths / 12)) / loanDetailProduct.maxTermMonths
                     )}/月
                   </div>
                 </div>
@@ -1392,10 +1408,10 @@ export default function Finance() {
                   <div className="text-xl font-bold text-blue-600">{selectedLoanApp.creditScore} 分</div>
                 </div>
               )}
-              {selectedLoanApp.interestRate && (
+              {(selectedLoanApp.annualRate || selectedLoanApp.interestRate) && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1">年化利率</div>
-                  <div className="text-xl font-bold text-gray-900">{selectedLoanApp.interestRate}%</div>
+                  <div className="text-xl font-bold text-gray-900">{selectedLoanApp.annualRate || selectedLoanApp.interestRate}%</div>
                 </div>
               )}
             </div>
