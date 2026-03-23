@@ -207,9 +207,12 @@ export const mockLoanProducts = [
     minAmount: 5000,
     maxAmount: 100000,
     interestRate: 3.85,
-    termMonths: 12,
+    minTermMonths: 6,
+    maxTermMonths: 12,
     minCreditScore: 60,
     providerName: "农村信用社牟平支行",
+    status: "ACTIVE",
+    createdAt: "2026-02-20 10:00:00",
   },
   {
     id: 2,
@@ -219,9 +222,12 @@ export const mockLoanProducts = [
     minAmount: 20000,
     maxAmount: 500000,
     interestRate: 4.25,
-    termMonths: 36,
+    minTermMonths: 12,
+    maxTermMonths: 36,
     minCreditScore: 70,
     providerName: "中国农业银行XX分行",
+    status: "ACTIVE",
+    createdAt: "2026-02-18 09:00:00",
   },
 ];
 
@@ -251,27 +257,50 @@ export const mockInsuranceProducts = [
 export const mockLoanApplications = [
   {
     id: 1,
+    productId: 1,
     productName: "春耕备耕贷",
     applicantName: "张三果园",
     amount: 50000,
     purpose: "购买春耕种子化肥",
     termMonths: 12,
+    interestRate: 3.85,
     creditScore: 82,
     status: "SUBMITTED",
     createdAt: "2026-02-20 10:00:00",
+    remark: null,
   },
 ];
 
 export const mockPolicies = [
   {
     id: 1,
+    productId: 1,
     productName: "水稻种植综合险",
+    insuranceType: "CROP",
+    providerName: "中国人保财险烟台分公司",
     totalPremium: 400,
     totalCoverage: 20000,
     quantity: 2,
     status: "ACTIVE",
     startDate: "2026-03-01",
     endDate: "2026-09-01",
+    createdAt: "2026-02-28 14:00:00",
+    paidAt: "2026-02-28 14:05:00",
+  },
+  {
+    id: 2,
+    productId: 2,
+    productName: "生猪养殖保险",
+    insuranceType: "LIVESTOCK",
+    providerName: "中国人保财险烟台分公司",
+    totalPremium: 500,
+    totalCoverage: 30000,
+    quantity: 1,
+    status: "PENDING_PAYMENT",
+    startDate: null,
+    endDate: null,
+    createdAt: "2026-03-20 10:00:00",
+    paidAt: null,
   },
 ];
 

@@ -79,12 +79,25 @@ export default function Finance() {
   const [showLoanDetailModal, setShowLoanDetailModal] = useState(false);
   const [loanDetailProduct, setLoanDetailProduct] = useState<any>(null);
 
+  // Insurance detail modal
+  const [showInsDetailModal, setShowInsDetailModal] = useState(false);
+  const [insDetailProduct, setInsDetailProduct] = useState<any>(null);
+
+  // Loan application detail (expandable)
+  const [expandedLoanAppId, setExpandedLoanAppId] = useState<number | null>(null);
+
+  // Policy detail (expandable)
+  const [expandedPolicyId, setExpandedPolicyId] = useState<number | null>(null);
+
+  // Farmer: my claims
+  const [myClaims, setMyClaims] = useState<any[]>([]);
+
   // Provider: publish loan product
   const [showPublishLoanModal, setShowPublishLoanModal] = useState(false);
   const [editingLoanId, setEditingLoanId] = useState<number | null>(null);
   const [loanProductForm, setLoanProductForm] = useState({
-    name: "", type: "CROP_LOAN", description: "", maxAmount: "",
-    annualRate: "", maxTermMonths: "", minCreditScore: "40",
+    name: "", type: "CROP_LOAN", description: "", minAmount: "", maxAmount: "",
+    interestRate: "", minTermMonths: "", maxTermMonths: "", minCreditScore: "40",
   });
 
   // Provider: publish insurance product
@@ -101,7 +114,7 @@ export default function Finance() {
 
   useEffect(() => {
     if (activeTab === "myLoanApps") fetchMyLoanApps();
-    if (activeTab === "myPolicies") fetchMyPolicies();
+    if (activeTab === "myPolicies") { fetchMyPolicies(); fetchMyClaims(); }
     if (activeTab === "myLoanProducts") fetchMyLoanProducts();
     if (activeTab === "loanReview") fetchPendingLoanApps();
     if (activeTab === "myInsProducts") fetchMyInsuranceProducts();
@@ -169,6 +182,25 @@ export default function Finance() {
       const res = await api.get("/finance/policies/mine");
       setMyPolicies(res.data?.data?.records || res.data?.data || []);
     } catch (err) { console.error(err); }
+  };
+
+  const fetchMyClaims = async () => {
+    try {
+      const res = await api.get("/finance/claims/mine");
+      setMyClaims(res.data?.data?.records || res.data?.data || []);
+    } catch (err) { console.error(err); }
+  };
+
+  const handlePayPolicy = async (policyId: number) => {
+    try {
+      const res = await api.put(`/finance/policies/${policyId}/pay`);
+      if (res.data.code === 200) {
+        addToast("保费支付成功，保单已生效", "success");
+        fetchMyPolicies();
+      } else {
+        addToast(res.data.message || "支付失败", "error");
+      }
+    } catch (err) { addToast("支付失败", "error"); }
   };
 
   // --- Handlers ---
@@ -275,14 +307,16 @@ export default function Finance() {
         name: product.name || "",
         type: product.type || "CROP_LOAN",
         description: product.description || "",
+        minAmount: product.minAmount?.toString() || "",
         maxAmount: product.maxAmount?.toString() || "",
-        annualRate: product.annualRate?.toString() || "",
+        interestRate: product.interestRate?.toString() || "",
+        minTermMonths: product.minTermMonths?.toString() || "",
         maxTermMonths: product.maxTermMonths?.toString() || "",
         minCreditScore: product.minCreditScore?.toString() || "40",
       });
     } else {
       setEditingLoanId(null);
-      setLoanProductForm({ name: "", type: "CROP_LOAN", description: "", maxAmount: "", annualRate: "", maxTermMonths: "", minCreditScore: "40" });
+      setLoanProductForm({ name: "", type: "CROP_LOAN", description: "", minAmount: "", maxAmount: "", interestRate: "", minTermMonths: "", maxTermMonths: "", minCreditScore: "40" });
     }
     setShowPublishLoanModal(true);
   };
@@ -292,8 +326,10 @@ export default function Finance() {
     try {
       const payload = {
         ...loanProductForm,
+        minAmount: parseFloat(loanProductForm.minAmount),
         maxAmount: parseFloat(loanProductForm.maxAmount),
-        annualRate: parseFloat(loanProductForm.annualRate),
+        interestRate: parseFloat(loanProductForm.interestRate),
+        minTermMonths: parseInt(loanProductForm.minTermMonths),
         maxTermMonths: parseInt(loanProductForm.maxTermMonths),
         minCreditScore: parseInt(loanProductForm.minCreditScore),
       };
@@ -563,22 +599,23 @@ export default function Finance() {
                   <p className="text-sm text-gray-600 mb-6 line-clamp-2">{loan.description}</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">最高额度</div>
+                      <div className="text-xs text-gray-500 mb-1">额度范围</div>
                       <div className="text-lg font-bold text-red-600">{(loan.maxAmount || 0) / 10000}万</div>
+                      {loan.minAmount && (
+                        <div className="text-xs text-gray-400">最低 {formatCurrency(loan.minAmount)}</div>
+                      )}
                     </div>
-                    {loan.minAmount && (
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">最低金额</div>
-                        <div className="text-sm font-bold text-gray-700">{formatCurrency(loan.minAmount)}</div>
-                      </div>
-                    )}
                     <div>
                       <div className="text-xs text-gray-500 mb-1">年化利率</div>
-                      <div className="text-lg font-bold text-gray-900">{loan.annualRate}%</div>
+                      <div className="text-lg font-bold text-gray-900">{loan.interestRate}%</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">最长期限</div>
-                      <div className="text-lg font-bold text-gray-900">{loan.maxTermMonths}个月</div>
+                      <div className="text-xs text-gray-500 mb-1">贷款期限</div>
+                      <div className="text-lg font-bold text-gray-900">{loan.minTermMonths}~{loan.maxTermMonths}个月</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">最低信用分</div>
+                      <div className="text-lg font-bold text-gray-900">{loan.minCreditScore}分</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-gray-50">
@@ -665,7 +702,14 @@ export default function Finance() {
                       <div className="text-lg font-bold text-gray-900">{ins.durationMonths}个月</div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-end pt-4 border-t border-gray-50">
+                  <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-50">
+                    <button
+                      onClick={() => { setInsDetailProduct(ins); setShowInsDetailModal(true); }}
+                      className="px-4 py-2 border border-green-200 text-green-600 rounded-lg text-sm font-medium hover:bg-green-50 transition-colors flex items-center gap-1"
+                    >
+                      <Eye className="w-4 h-4" />
+                      详情
+                    </button>
                     {isFarmer && (
                       <button
                         onClick={() => { if (!expired) { setSelectedInsProduct(ins); setShowInsuranceBuyModal(true); } }}
@@ -693,29 +737,50 @@ export default function Finance() {
           ) : (
             <div className="space-y-3">
               {myLoanApps.map(app => (
-                <div key={app.id} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-sm transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-gray-900">{app.productName || "贷款产品"}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        金额：{formatCurrency(app.amount)} · 期限：{app.termMonths}个月
-                      </p>
+                <div key={app.id} className="bg-white rounded-xl border border-gray-100 hover:shadow-sm transition-shadow overflow-hidden">
+                  <div
+                    className="p-4 cursor-pointer"
+                    onClick={() => setExpandedLoanAppId(expandedLoanAppId === app.id ? null : app.id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-bold text-gray-900">{app.productName || "贷款产品"}</h4>
+                        <p className="text-xs text-gray-500 mt-1">
+                          金额：{formatCurrency(app.amount || app.applyAmount)} · 期限：{app.termMonths || app.applyTermMonths}个月
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-1 rounded-md font-medium ${
+                          app.status === "APPROVED" ? "bg-green-100 text-green-700" :
+                          app.status === "REJECTED" ? "bg-red-100 text-red-700" :
+                          app.status === "DISBURSED" ? "bg-blue-100 text-blue-700" :
+                          app.status === "REPAID" ? "bg-purple-100 text-purple-700" :
+                          "bg-yellow-100 text-yellow-700"
+                        }`}>
+                          {app.status === "SUBMITTED" ? "待审核" :
+                           app.status === "UNDER_REVIEW" ? "审核中" :
+                           app.status === "APPROVED" ? "已通过" :
+                           app.status === "REJECTED" ? "已拒绝" :
+                           app.status === "DISBURSED" ? "已放款" :
+                           app.status === "REPAID" ? "已还清" : app.status}
+                        </span>
+                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedLoanAppId === app.id ? "rotate-90" : ""}`} />
+                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-md font-medium ${
-                      app.status === "APPROVED" ? "bg-green-100 text-green-700" :
-                      app.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                      app.status === "DISBURSED" ? "bg-blue-100 text-blue-700" :
-                      "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {app.status === "SUBMITTED" ? "待审核" :
-                       app.status === "UNDER_REVIEW" ? "审核中" :
-                       app.status === "APPROVED" ? "已通过" :
-                       app.status === "REJECTED" ? "已拒绝" :
-                       app.status === "DISBURSED" ? "已放款" :
-                       app.status === "REPAID" ? "已还清" : app.status}
-                    </span>
                   </div>
-                  {app.purpose && <p className="text-sm text-gray-600 mt-2">用途：{app.purpose}</p>}
+                  {expandedLoanAppId === app.id && (
+                    <div className="px-4 pb-4 border-t border-gray-50 pt-3 space-y-3">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><span className="text-gray-500">申请金额：</span><span className="font-medium">{formatCurrency(app.amount || app.applyAmount)}</span></div>
+                        <div><span className="text-gray-500">申请期限：</span><span className="font-medium">{app.termMonths || app.applyTermMonths} 个月</span></div>
+                        {app.interestRate && <div><span className="text-gray-500">年化利率：</span><span className="font-medium">{app.interestRate}%</span></div>}
+                        {app.creditScore && <div><span className="text-gray-500">信用评分快照：</span><span className="font-medium">{app.creditScore} 分</span></div>}
+                      </div>
+                      {app.purpose && <div className="text-sm"><span className="text-gray-500">用途：</span>{app.purpose}</div>}
+                      {app.remark && <div className="text-sm"><span className="text-gray-500">审核备注：</span><span className={app.status === "REJECTED" ? "text-red-600" : "text-green-600"}>{app.remark}</span></div>}
+                      <div className="text-xs text-gray-400">申请时间：{app.createdAt}</div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -732,27 +797,73 @@ export default function Finance() {
           ) : (
             <div className="space-y-3">
               {myPolicies.map(policy => (
-                <div key={policy.id} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-sm transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-gray-900">{policy.productName || "保险产品"}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        保费：{formatCurrency(policy.totalPremium || 0)} · 保额：{formatCurrency(policy.totalCoverage || 0)}
-                      </p>
+                <div key={policy.id} className="bg-white rounded-xl border border-gray-100 hover:shadow-sm transition-shadow overflow-hidden">
+                  <div
+                    className="p-4 cursor-pointer"
+                    onClick={() => setExpandedPolicyId(expandedPolicyId === policy.id ? null : policy.id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-bold text-gray-900">{policy.productName || "保险产品"}</h4>
+                        <p className="text-xs text-gray-500 mt-1">
+                          保费：{formatCurrency(policy.totalPremium || 0)} · 保额：{formatCurrency(policy.totalCoverage || 0)}
+                          {policy.quantity && ` · ${policy.quantity}份`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-1 rounded-md font-medium ${
+                          policy.status === "ACTIVE" ? "bg-green-100 text-green-700" :
+                          policy.status === "EXPIRED" ? "bg-gray-100 text-gray-700" :
+                          policy.status === "CLAIMED" ? "bg-blue-100 text-blue-700" :
+                          "bg-yellow-100 text-yellow-700"
+                        }`}>
+                          {policy.status === "PENDING_PAYMENT" ? "待支付" :
+                           policy.status === "ACTIVE" ? "生效中" :
+                           policy.status === "EXPIRED" ? "已过期" :
+                           policy.status === "CLAIMED" ? "已理赔" :
+                           policy.status === "CANCELLED" ? "已取消" : policy.status}
+                        </span>
+                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedPolicyId === policy.id ? "rotate-90" : ""}`} />
+                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-md font-medium ${
-                      policy.status === "ACTIVE" ? "bg-green-100 text-green-700" :
-                      policy.status === "EXPIRED" ? "bg-gray-100 text-gray-700" :
-                      "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {policy.status === "PENDING_PAYMENT" ? "待支付" :
-                       policy.status === "ACTIVE" ? "生效中" :
-                       policy.status === "EXPIRED" ? "已过期" :
-                       policy.status === "CLAIMED" ? "已理赔" :
-                       policy.status === "CANCELLED" ? "已取消" : policy.status}
-                    </span>
                   </div>
-                  {policy.startDate && <p className="text-xs text-gray-500 mt-2">保障期：{policy.startDate} ~ {policy.endDate}</p>}
+                  {expandedPolicyId === policy.id && (
+                    <div className="px-4 pb-4 border-t border-gray-50 pt-3 space-y-3">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><span className="text-gray-500">总保费：</span><span className="font-medium text-red-600">{formatCurrency(policy.totalPremium || 0)}</span></div>
+                        <div><span className="text-gray-500">总保额：</span><span className="font-medium">{formatCurrency(policy.totalCoverage || 0)}</span></div>
+                        {policy.quantity && <div><span className="text-gray-500">购买份数：</span><span className="font-medium">{policy.quantity} 份</span></div>}
+                        {policy.insuranceType && <div><span className="text-gray-500">保险类型：</span><span className="font-medium">{INSURANCE_TYPES[policy.insuranceType] || policy.insuranceType}</span></div>}
+                        {policy.providerName && <div className="col-span-2"><span className="text-gray-500">承保机构：</span><span className="font-medium">{policy.providerName}</span></div>}
+                      </div>
+                      {policy.startDate && policy.endDate ? (
+                        <div className="bg-green-50 rounded-lg p-3 text-sm">
+                          <div className="flex items-center gap-2 text-green-700">
+                            <Calendar className="w-4 h-4" />
+                            <span className="font-medium">保障期：{policy.startDate} 至 {policy.endDate}</span>
+                          </div>
+                          <p className="text-xs text-green-600 mt-1">在保障期内如遇损失，可提交理赔申请</p>
+                        </div>
+                      ) : policy.status === "PENDING_PAYMENT" ? (
+                        <div className="bg-yellow-50 rounded-lg p-3 text-sm text-yellow-700">
+                          <p>支付保费后保单将自动生效，届时将显示保障期</p>
+                        </div>
+                      ) : null}
+                      <div className="text-xs text-gray-400">
+                        投保时间：{policy.createdAt}
+                        {policy.paidAt && ` · 支付时间：${policy.paidAt}`}
+                      </div>
+                      {policy.status === "PENDING_PAYMENT" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePayPolicy(policy.id); }}
+                          className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center justify-center gap-2"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          立即支付 {formatCurrency(policy.totalPremium || 0)}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -783,7 +894,7 @@ export default function Finance() {
                     <div>
                       <h4 className="font-bold text-gray-900">{product.name}</h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        {LOAN_TYPES[product.type] || product.type} · 最高{(product.maxAmount || 0) / 10000}万 · {product.annualRate}%利率
+                        {LOAN_TYPES[product.type] || product.type} · {formatCurrency(product.minAmount || 0)}~{(product.maxAmount || 0) / 10000}万 · {product.interestRate}%利率
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -863,7 +974,7 @@ export default function Finance() {
                     <div>
                       <h4 className="font-bold text-gray-900">{product.name}</h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        {INSURANCE_TYPES[product.type] || product.type} · 保费{formatCurrency(product.premium || 0)} · 保额{formatCurrency(product.coverageAmount || 0)}
+                        {INSURANCE_TYPES[product.type] || product.type} · 保费{formatCurrency(product.premium || 0)} · 保额{formatCurrency(product.coverageAmount || 0)} · {product.durationMonths}个月
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -924,12 +1035,9 @@ export default function Finance() {
       <Modal isOpen={showLoanApplyModal} onClose={() => setShowLoanApplyModal(false)} title={`申请贷款 - ${selectedLoanProduct?.name || ""}`}>
         <form onSubmit={handleApplyLoan} className="space-y-4">
           <div className="bg-blue-50 rounded-lg p-3 text-sm space-y-1">
-            <div className="flex justify-between"><span className="text-gray-600">最高额度</span><span className="font-bold">{formatCurrency(selectedLoanProduct?.maxAmount || 0)}</span></div>
-            {selectedLoanProduct?.minAmount && (
-              <div className="flex justify-between"><span className="text-gray-600">最低申请金额</span><span className="font-bold">{formatCurrency(selectedLoanProduct.minAmount)}</span></div>
-            )}
-            <div className="flex justify-between"><span className="text-gray-600">年化利率</span><span className="font-bold">{selectedLoanProduct?.annualRate}%</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">最长期限</span><span className="font-bold">{selectedLoanProduct?.maxTermMonths} 个月</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">额度范围</span><span className="font-bold">{formatCurrency(selectedLoanProduct?.minAmount || 0)} ~ {formatCurrency(selectedLoanProduct?.maxAmount || 0)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">年化利率</span><span className="font-bold">{selectedLoanProduct?.interestRate}%</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">贷款期限</span><span className="font-bold">{selectedLoanProduct?.minTermMonths} ~ {selectedLoanProduct?.maxTermMonths} 个月</span></div>
             <div className="flex justify-between"><span className="text-gray-600">最低信用分要求</span><span className="font-bold">{selectedLoanProduct?.minCreditScore} 分</span></div>
           </div>
 
@@ -980,24 +1088,26 @@ export default function Finance() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               申请期限 (月)
-              {selectedLoanProduct?.maxTermMonths && (
-                <span className="text-xs text-gray-400 ml-2">最长 {selectedLoanProduct.maxTermMonths} 个月</span>
+              {selectedLoanProduct?.minTermMonths && selectedLoanProduct?.maxTermMonths && (
+                <span className="text-xs text-gray-400 ml-2">范围: {selectedLoanProduct.minTermMonths} ~ {selectedLoanProduct.maxTermMonths} 个月</span>
               )}
             </label>
-            <input type="number" required min={1}
+            <input type="number" required
+              min={selectedLoanProduct?.minTermMonths || 1}
               max={selectedLoanProduct?.maxTermMonths || undefined}
               className="w-full border border-gray-300 rounded-lg p-2"
-              value={loanApplyForm.termMonths} onChange={e => setLoanApplyForm({...loanApplyForm, termMonths: e.target.value})} />
+              value={loanApplyForm.termMonths} onChange={e => setLoanApplyForm({...loanApplyForm, termMonths: e.target.value})}
+              placeholder={selectedLoanProduct?.minTermMonths ? `最短 ${selectedLoanProduct.minTermMonths} 个月` : ""} />
           </div>
 
           {/* Estimated monthly payment */}
-          {loanApplyForm.amount && loanApplyForm.termMonths && selectedLoanProduct?.annualRate && (
+          {loanApplyForm.amount && loanApplyForm.termMonths && selectedLoanProduct?.interestRate && (
             <div className="bg-gray-50 rounded-lg p-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">预估月还款额</span>
                 <span className="font-bold text-blue-700">
                   {formatCurrency(
-                    (parseFloat(loanApplyForm.amount) * (1 + selectedLoanProduct.annualRate / 100 * parseInt(loanApplyForm.termMonths) / 12)) / parseInt(loanApplyForm.termMonths)
+                    (parseFloat(loanApplyForm.amount) * (1 + selectedLoanProduct.interestRate / 100 * parseInt(loanApplyForm.termMonths) / 12)) / parseInt(loanApplyForm.termMonths)
                   )}
                 </span>
               </div>
@@ -1064,21 +1174,37 @@ export default function Finance() {
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">年化利率 (%)</label>
+              <input type="number" required step="0.01" className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.interestRate} onChange={e => setLoanProductForm({...loanProductForm, interestRate: e.target.value})} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">最低额度 (元)</label>
+              <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.minAmount} onChange={e => setLoanProductForm({...loanProductForm, minAmount: e.target.value})}
+                placeholder="如：5000" />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">最高额度 (元)</label>
               <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
-                value={loanProductForm.maxAmount} onChange={e => setLoanProductForm({...loanProductForm, maxAmount: e.target.value})} />
+                value={loanProductForm.maxAmount} onChange={e => setLoanProductForm({...loanProductForm, maxAmount: e.target.value})}
+                placeholder="如：100000" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">年化利率 (%)</label>
-              <input type="number" required step="0.01" className="w-full border border-gray-300 rounded-lg p-2"
-                value={loanProductForm.annualRate} onChange={e => setLoanProductForm({...loanProductForm, annualRate: e.target.value})} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">最短期限 (月)</label>
+              <input type="number" required min={1} className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.minTermMonths} onChange={e => setLoanProductForm({...loanProductForm, minTermMonths: e.target.value})}
+                placeholder="如：6" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">期限 (月)</label>
-              <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
-                value={loanProductForm.maxTermMonths} onChange={e => setLoanProductForm({...loanProductForm, maxTermMonths: e.target.value})} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">最长期限 (月)</label>
+              <input type="number" required min={1} className="w-full border border-gray-300 rounded-lg p-2"
+                value={loanProductForm.maxTermMonths} onChange={e => setLoanProductForm({...loanProductForm, maxTermMonths: e.target.value})}
+                placeholder="如：12" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">最低信用分</label>
@@ -1119,33 +1245,31 @@ export default function Finance() {
             <p className="text-sm text-gray-600 leading-relaxed">{loanDetailProduct.description}</p>
             <div className="grid grid-cols-2 gap-4 bg-blue-50 rounded-xl p-4">
               <div>
+                <div className="text-xs text-gray-500 mb-1">最低申请金额</div>
+                <div className="text-xl font-bold text-gray-700">{formatCurrency(loanDetailProduct.minAmount || 0)}</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-500 mb-1">最高贷款额度</div>
                 <div className="text-xl font-bold text-red-600">{formatCurrency(loanDetailProduct.maxAmount || 0)}</div>
               </div>
-              {loanDetailProduct.minAmount && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">最低申请金额</div>
-                  <div className="text-xl font-bold text-gray-700">{formatCurrency(loanDetailProduct.minAmount)}</div>
-                </div>
-              )}
               <div>
                 <div className="text-xs text-gray-500 mb-1">年化利率</div>
-                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.annualRate}%</div>
+                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.interestRate}%</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">最长期限</div>
-                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.maxTermMonths} 个月</div>
+                <div className="text-xs text-gray-500 mb-1">贷款期限</div>
+                <div className="text-xl font-bold text-gray-900">{loanDetailProduct.minTermMonths}~{loanDetailProduct.maxTermMonths} 个月</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">最低信用分要求</div>
                 <div className="text-xl font-bold text-gray-900">{loanDetailProduct.minCreditScore} 分</div>
               </div>
-              {loanDetailProduct.annualRate && loanDetailProduct.maxTermMonths && loanDetailProduct.maxAmount && (
+              {loanDetailProduct.interestRate && loanDetailProduct.maxTermMonths && loanDetailProduct.maxAmount && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1">满额月还款参考</div>
                   <div className="text-sm font-bold text-blue-700">
                     ≈ {formatCurrency(
-                      (loanDetailProduct.maxAmount * (1 + loanDetailProduct.annualRate / 100 * loanDetailProduct.maxTermMonths / 12)) / loanDetailProduct.maxTermMonths
+                      (loanDetailProduct.maxAmount * (1 + loanDetailProduct.interestRate / 100 * loanDetailProduct.maxTermMonths / 12)) / loanDetailProduct.maxTermMonths
                     )}/月
                   </div>
                 </div>
@@ -1180,6 +1304,71 @@ export default function Finance() {
                   className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                 >
                   立即申请
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Insurance Detail Modal */}
+      <Modal isOpen={showInsDetailModal} onClose={() => setShowInsDetailModal(false)} title={insDetailProduct?.name || "保险产品详情"}>
+        {insDetailProduct && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-md">
+                {INSURANCE_TYPES[insDetailProduct.type] || insDetailProduct.type}
+              </span>
+              {isProductExpired(insDetailProduct) && (
+                <span className="px-2.5 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-md">已过期</span>
+              )}
+            </div>
+            {insDetailProduct.providerName && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Shield className="w-4 h-4" />
+                <span>承保机构：{insDetailProduct.providerName}</span>
+              </div>
+            )}
+            <p className="text-sm text-gray-600 leading-relaxed">{insDetailProduct.description}</p>
+            <div className="grid grid-cols-2 gap-4 bg-green-50 rounded-xl p-4">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">单份保费</div>
+                <div className="text-xl font-bold text-red-600">{formatCurrency(insDetailProduct.premium || 0)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">单份保额</div>
+                <div className="text-xl font-bold text-gray-900">{formatCurrency(insDetailProduct.coverageAmount || 0)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">保障期</div>
+                <div className="text-xl font-bold text-gray-900">{insDetailProduct.durationMonths} 个月</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">赔付比例</div>
+                <div className="text-xl font-bold text-gray-900">最高100%</div>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600 space-y-1">
+              <p className="font-medium text-gray-700">理赔说明：</p>
+              <p>1. 在保障期内发生保险事故后，可在线提交理赔申请</p>
+              <p>2. 需提供出险日期、损失描述等信息</p>
+              <p>3. 索赔金额不超过保额，同保单不可重复理赔</p>
+            </div>
+            {insDetailProduct.createdAt && (
+              <div className="text-xs text-gray-400">发布时间：{insDetailProduct.createdAt}</div>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowInsDetailModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">关闭</button>
+              {isFarmer && !isProductExpired(insDetailProduct) && (
+                <button
+                  onClick={() => {
+                    setShowInsDetailModal(false);
+                    setSelectedInsProduct(insDetailProduct);
+                    setShowInsuranceBuyModal(true);
+                  }}
+                  className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                >
+                  立即投保
                 </button>
               )}
             </div>
