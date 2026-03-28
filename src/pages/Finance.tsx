@@ -99,8 +99,8 @@ export default function Finance() {
   const [showPublishInsModal, setShowPublishInsModal] = useState(false);
   const [editingInsId, setEditingInsId] = useState<number | null>(null);
   const [insProductForm, setInsProductForm] = useState({
-    name: "", type: "CROP", description: "", premium: "",
-    coverageAmount: "", durationMonths: "",
+    name: "", type: "CROP", description: "", premium: "", premiumUnit: "元/亩",
+    coverageAmount: "", coverageMonths: "", coverageScope: "", claimConditions: "",
   });
 
   useEffect(() => {
@@ -343,12 +343,15 @@ export default function Finance() {
         type: product.type || "CROP",
         description: product.description || "",
         premium: product.premium?.toString() || "",
+        premiumUnit: product.premiumUnit || "元/亩",
         coverageAmount: product.coverageAmount?.toString() || "",
-        durationMonths: product.durationMonths?.toString() || "",
+        coverageMonths: product.coverageMonths?.toString() || "",
+        coverageScope: product.coverageScope || "",
+        claimConditions: product.claimConditions || "",
       });
     } else {
       setEditingInsId(null);
-      setInsProductForm({ name: "", type: "CROP", description: "", premium: "", coverageAmount: "", durationMonths: "" });
+      setInsProductForm({ name: "", type: "CROP", description: "", premium: "", premiumUnit: "元/亩", coverageAmount: "", coverageMonths: "", coverageScope: "", claimConditions: "" });
     }
     setShowPublishInsModal(true);
   };
@@ -360,7 +363,7 @@ export default function Finance() {
         ...insProductForm,
         premium: parseFloat(insProductForm.premium),
         coverageAmount: parseFloat(insProductForm.coverageAmount),
-        durationMonths: parseInt(insProductForm.durationMonths),
+        coverageMonths: parseInt(insProductForm.coverageMonths),
       };
       let res;
       if (editingInsId) {
@@ -683,10 +686,10 @@ export default function Finance() {
                     </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-6 line-clamp-2">{ins.description}</p>
-                  <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div>
                       <div className="text-xs text-gray-500 mb-1">保费</div>
-                      <div className="text-lg font-bold text-red-600">{formatCurrency(ins.premium || 0)}</div>
+                      <div className="text-lg font-bold text-red-600">{formatCurrency(ins.premium || 0)}{ins.premiumUnit ? `/${ins.premiumUnit.replace("元/", "")}` : ""}</div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">保额</div>
@@ -694,8 +697,14 @@ export default function Finance() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">保障期</div>
-                      <div className="text-lg font-bold text-gray-900">{ins.durationMonths}个月</div>
+                      <div className="text-lg font-bold text-gray-900">{ins.coverageMonths}个月</div>
                     </div>
+                    {ins.coverageScope && (
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">保障范围</div>
+                        <div className="text-sm font-medium text-gray-700 line-clamp-2">{ins.coverageScope}</div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-end pt-4 border-t border-gray-50 gap-2">
                     <button
@@ -802,7 +811,7 @@ export default function Finance() {
                     <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
                       保障期：{policy.effectiveDate || policy.startDate} ~ {policy.expiryDate || policy.endDate}
-                      {policy.durationMonths && ` (${policy.durationMonths}个月)`}
+                      {policy.coverageMonths && ` (${policy.coverageMonths}个月)`}
                     </p>
                   )}
                   {policy.status === "PENDING_PAYMENT" && (
@@ -926,7 +935,7 @@ export default function Finance() {
                     <div>
                       <h4 className="font-bold text-gray-900">{product.name}</h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        {INSURANCE_TYPES[product.type] || product.type} · 保费{formatCurrency(product.premium || 0)} · 保额{formatCurrency(product.coverageAmount || 0)}
+                        {INSURANCE_TYPES[product.type] || product.type} · 保费{formatCurrency(product.premium || 0)}{product.premiumUnit ? `/${product.premiumUnit.replace("元/", "")}` : ""} · 保额{formatCurrency(product.coverageAmount || 0)} · {product.coverageMonths}个月
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1081,7 +1090,10 @@ export default function Finance() {
           <div className="bg-green-50 rounded-lg p-3 text-sm space-y-1">
             <div className="flex justify-between"><span className="text-gray-600">单份保费</span><span className="font-bold">{formatCurrency(selectedInsProduct?.premium || 0)}</span></div>
             <div className="flex justify-between"><span className="text-gray-600">单份保额</span><span className="font-bold">{formatCurrency(selectedInsProduct?.coverageAmount || 0)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">保障期</span><span className="font-bold">{selectedInsProduct?.durationMonths}个月</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">保障期</span><span className="font-bold">{selectedInsProduct?.coverageMonths}个月</span></div>
+            {selectedInsProduct?.premiumUnit && (
+              <div className="flex justify-between"><span className="text-gray-600">计量单位</span><span className="font-bold">{selectedInsProduct.premiumUnit}</span></div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">购买份数</label>
@@ -1280,15 +1292,25 @@ export default function Finance() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">保障期 (月)</label>
-              <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
-                value={insProductForm.durationMonths} onChange={e => setInsProductForm({...insProductForm, durationMonths: e.target.value})} />
+              <input type="number" required min={1} className="w-full border border-gray-300 rounded-lg p-2"
+                value={insProductForm.coverageMonths} onChange={e => setInsProductForm({...insProductForm, coverageMonths: e.target.value})} placeholder="如：6" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">单份保费 (元)</label>
               <input type="number" required step="0.01" className="w-full border border-gray-300 rounded-lg p-2"
                 value={insProductForm.premium} onChange={e => setInsProductForm({...insProductForm, premium: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">保费单位</label>
+              <select className="w-full border border-gray-300 rounded-lg p-2"
+                value={insProductForm.premiumUnit} onChange={e => setInsProductForm({...insProductForm, premiumUnit: e.target.value})}>
+                <option value="元/亩">元/亩</option>
+                <option value="元/头">元/头</option>
+                <option value="元/份">元/份</option>
+                <option value="元/棚">元/棚</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">单份保额 (元)</label>
@@ -1298,8 +1320,20 @@ export default function Finance() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">产品描述</label>
-            <textarea required className="w-full border border-gray-300 rounded-lg p-2" rows={3}
+            <textarea required className="w-full border border-gray-300 rounded-lg p-2" rows={2}
               value={insProductForm.description} onChange={e => setInsProductForm({...insProductForm, description: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">保障范围</label>
+            <textarea className="w-full border border-gray-300 rounded-lg p-2" rows={2}
+              value={insProductForm.coverageScope} onChange={e => setInsProductForm({...insProductForm, coverageScope: e.target.value})}
+              placeholder="如：洪涝、干旱、病虫害导致的减产" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">理赔条件</label>
+            <textarea className="w-full border border-gray-300 rounded-lg p-2" rows={2}
+              value={insProductForm.claimConditions} onChange={e => setInsProductForm({...insProductForm, claimConditions: e.target.value})}
+              placeholder="如：需提供损失照片和村委证明" />
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={() => setShowPublishInsModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">取消</button>
@@ -1330,7 +1364,10 @@ export default function Finance() {
             <div className="grid grid-cols-2 gap-4 bg-green-50 rounded-xl p-4">
               <div>
                 <div className="text-xs text-gray-500 mb-1">单份保费</div>
-                <div className="text-xl font-bold text-red-600">{formatCurrency(insDetailProduct.premium || 0)}</div>
+                <div className="text-xl font-bold text-red-600">
+                  {formatCurrency(insDetailProduct.premium || 0)}
+                  {insDetailProduct.premiumUnit && <span className="text-xs font-normal text-gray-500 ml-1">/{insDetailProduct.premiumUnit.replace("元/", "")}</span>}
+                </div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">单份保额</div>
@@ -1338,7 +1375,7 @@ export default function Finance() {
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">保障期限</div>
-                <div className="text-xl font-bold text-gray-900">{insDetailProduct.durationMonths} 个月</div>
+                <div className="text-xl font-bold text-gray-900">{insDetailProduct.coverageMonths} 个月</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">赔付比例</div>
@@ -1349,6 +1386,18 @@ export default function Finance() {
                 </div>
               </div>
             </div>
+            {insDetailProduct.coverageScope && (
+              <div>
+                <div className="text-sm text-gray-500 mb-1">保障范围</div>
+                <p className="text-sm text-gray-700 bg-green-50 rounded-lg p-3">{insDetailProduct.coverageScope}</p>
+              </div>
+            )}
+            {insDetailProduct.claimConditions && (
+              <div>
+                <div className="text-sm text-gray-500 mb-1">理赔条件</div>
+                <p className="text-sm text-gray-700 bg-green-50 rounded-lg p-3">{insDetailProduct.claimConditions}</p>
+              </div>
+            )}
             {insDetailProduct.createdAt && (
               <div className="text-xs text-gray-400">发布时间：{insDetailProduct.createdAt}</div>
             )}
