@@ -31,7 +31,7 @@ export default function Tourism() {
   // Publish Spot Modal
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
   const [newSpot, setNewSpot] = useState({
-    name: "",
+    title: "",
     type: "PICKING_GARDEN",
     address: "",
     description: "",
@@ -103,7 +103,7 @@ export default function Tourism() {
         addToast(isAdminUser ? "景点发布成功" : "景点发布成功，等待管理员审核", "success");
         setShowAddSpotModal(false);
         setNewSpot({
-          name: "",
+          title: "",
           type: "PICKING_GARDEN",
           address: "",
           description: "",
@@ -300,7 +300,7 @@ export default function Tourism() {
               <div className="relative aspect-video overflow-hidden bg-gray-100">
                 <img
                   src={spot.coverImage}
-                  alt={spot.name}
+                  alt={spot.title || spot.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
@@ -316,7 +316,7 @@ export default function Tourism() {
 
               <div className="p-5 flex flex-col flex-1">
                 <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  {spot.name}
+                  {spot.title || spot.name}
                 </h3>
                 <div className="flex items-start gap-1.5 text-xs text-gray-500 mb-3">
                   <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
@@ -365,8 +365,8 @@ export default function Tourism() {
               type="text"
               required
               className="w-full border border-gray-300 rounded-lg p-2"
-              value={newSpot.name}
-              onChange={e => setNewSpot({...newSpot, name: e.target.value})}
+              value={newSpot.title}
+              onChange={e => setNewSpot({...newSpot, title: e.target.value})}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -499,7 +499,7 @@ export default function Tourism() {
               <div key={spot.id} className="border border-gray-100 rounded-xl p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-bold text-gray-900">{spot.name}</h4>
+                    <h4 className="font-bold text-gray-900">{spot.title || spot.name}</h4>
                     <span className="text-xs text-gray-500">{getTypeLabel(spot.type)} · {spot.address}</span>
                   </div>
                   <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md font-medium">待审核</span>
