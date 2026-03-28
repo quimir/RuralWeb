@@ -309,7 +309,7 @@ export default function Tourism() {
                 </div>
                 <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-md text-xs font-bold text-gray-900 flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                  {spot.averageRating ?? spot.rating ?? 0}
+                  {spot.averageRating ?? spot.rating ?? 5}
                   <span className="font-normal text-gray-500">({spot.reviewCount || 0}评)</span>
                 </div>
               </div>
