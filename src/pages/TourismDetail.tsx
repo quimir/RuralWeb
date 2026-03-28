@@ -87,7 +87,11 @@ export default function TourismDetail() {
   // Expand description
   const [descExpanded, setDescExpanded] = useState(false);
 
-  const isOwner = userInfo && spot && userInfo.id === spot.creatorId;
+  const isOwner = userInfo && spot && (
+    userInfo.id === spot.creatorId ||
+    userInfo.id === spot.ownerId ||
+    userInfo.id === spot.userId
+  );
   const isAdmin = userInfo?.role === "ADMIN";
   const canManage = isOwner || isAdmin;
 
@@ -203,6 +207,48 @@ export default function TourismDetail() {
             navigate("/tourism");
           } else { addToast(res.data.message || "删除失败", "error"); }
         } catch (err) { addToast("删除失败", "error"); }
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleToggleSpotStatus = () => {
+    const isOnline = spot.status === "APPROVED";
+    setConfirmDialog({
+      isOpen: true,
+      title: isOnline ? "确定要下架该景点吗？下架后游客将无法浏览。" : "确定要重新上架该景点吗？",
+      onConfirm: async () => {
+        try {
+          const endpoint = isOnline
+            ? `/tourism/spots/${id}/offline`
+            : `/tourism/spots/${id}/online`;
+          const res = await api.put(endpoint);
+          if (res.data.code === 200) {
+            addToast(isOnline ? "景点已下架" : "景点已上架", "success");
+            fetchSpot();
+          } else { addToast(res.data.message || "操作失败", "error"); }
+        } catch (err) { addToast("操作失败", "error"); }
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleToggleTicketStatus = (ticketId: number, currentStatus: string) => {
+    const isActive = currentStatus === "ACTIVE" || !currentStatus;
+    setConfirmDialog({
+      isOpen: true,
+      title: isActive ? "确定要下架该票型吗？" : "确定要重新上架该票型吗？",
+      onConfirm: async () => {
+        try {
+          const endpoint = isActive
+            ? `/tourism/spots/${id}/tickets/${ticketId}/offline`
+            : `/tourism/spots/${id}/tickets/${ticketId}/online`;
+          const res = await api.put(endpoint);
+          if (res.data.code === 200) {
+            addToast(isActive ? "票型已下架" : "票型已上架", "success");
+            fetchTickets();
+          } else { addToast(res.data.message || "操作失败", "error"); }
+        } catch (err) { addToast("操作失败", "error"); }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -437,6 +483,19 @@ export default function TourismDetail() {
                 <Trash2 className="w-4 h-4" />
                 删除
               </button>
+              {(spot.status === "APPROVED" || spot.status === "OFFLINE") && (
+                <button
+                  onClick={handleToggleSpotStatus}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    spot.status === "APPROVED"
+                      ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                      : "bg-green-50 text-green-600 hover:bg-green-100"
+                  }`}
+                >
+                  <Power className="w-4 h-4" />
+                  {spot.status === "APPROVED" ? "下架" : "上架"}
+                </button>
+              )}
             </>
           )}
           <button
@@ -461,7 +520,7 @@ export default function TourismDetail() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Power className="w-4 h-4" />
-              当前状态：{spot.status === "PENDING" ? "待审核" : spot.status === "REJECTED" ? "已拒绝" : spot.status}
+              当前状态：{spot.status === "PENDING" ? "待审核" : spot.status === "REJECTED" ? "已拒绝" : spot.status === "OFFLINE" ? "已下架" : spot.status}
             </div>
             {isAdmin && spot.status === "PENDING" && (
               <div className="flex items-center gap-2">
@@ -496,7 +555,7 @@ export default function TourismDetail() {
         <div className="absolute bottom-4 right-4 flex items-center gap-3">
           <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm font-bold text-gray-900 flex items-center gap-1">
             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-            {(spot.rating || (reviews.length > 0 ? (reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1) : 0))}
+            {(spot.averageRating || spot.rating || (reviews.length > 0 ? (reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1) : 5))}
             {(spot.reviewCount || reviews.length) > 0 && (
               <span className="text-xs text-gray-500 font-normal ml-0.5">({spot.reviewCount || reviews.length}评)</span>
             )}
@@ -569,9 +628,16 @@ export default function TourismDetail() {
         ) : (
           <div className="space-y-3">
             {tickets.map((ticket: any) => (
-              <div key={ticket.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:border-orange-200 transition-colors">
+              <div key={ticket.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${
+                ticket.status === "OFFLINE" ? "border-gray-200 bg-gray-50 opacity-70" : "border-gray-100 hover:border-orange-200"
+              }`}>
                 <div>
-                  <h4 className="font-medium text-gray-900">{ticket.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-gray-900">{ticket.name}</h4>
+                    {ticket.status === "OFFLINE" && (
+                      <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">已下架</span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
                     {ticket.category === "ROOM" ? "住宿" : "门票"}
                     {ticket.description && ` · ${ticket.description}`}
@@ -585,11 +651,24 @@ export default function TourismDetail() {
                     )}
                   </div>
                   {canManage && (
-                    <button onClick={() => handleDeleteTicket(ticket.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleToggleTicketStatus(ticket.id, ticket.status)}
+                        className={`p-1.5 rounded-lg text-xs font-medium ${
+                          ticket.status === "OFFLINE"
+                            ? "text-green-600 hover:bg-green-50"
+                            : "text-yellow-600 hover:bg-yellow-50"
+                        }`}
+                        title={ticket.status === "OFFLINE" ? "上架" : "下架"}
+                      >
+                        <Power className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteTicket(ticket.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
-                  {userInfo?.role !== "ADMIN" && (
+                  {ticket.status !== "OFFLINE" && userInfo?.role !== "ADMIN" && (
                     <button onClick={() => openBooking(ticket)} className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors">
                       预订
                     </button>
