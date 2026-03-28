@@ -57,7 +57,7 @@ export default function TourismDetail() {
   // Edit Spot
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
-    name: "", type: "PICKING_GARDEN", address: "", description: "",
+    title: "", type: "PICKING_GARDEN", address: "", description: "",
     coverImage: "", price: "", openTime: "", contactPhone: "",
     startDate: "", endDate: ""
   });
@@ -116,7 +116,7 @@ export default function TourismDetail() {
       setSpot(data);
       if (data) {
         setEditForm({
-          name: data.name || "", type: data.type || "PICKING_GARDEN",
+          title: data.title || data.name || "", type: data.type || "PICKING_GARDEN",
           address: data.address || "", description: data.description || "",
           coverImage: data.coverImage || "", price: data.price || "",
           openTime: data.openTime || "", contactPhone: data.contactPhone || "",
@@ -377,7 +377,7 @@ export default function TourismDetail() {
             visitDate: bookingForm.visitDate,
             checkIn: bookingForm.checkIn,
             checkOut: bookingForm.checkOut,
-            spotName: spot?.name,
+            spotName: spot?.title || spot?.name,
           });
           setPaymentSuccess(false);
           setShowPaymentModal(true);
@@ -489,7 +489,7 @@ export default function TourismDetail() {
 
       {/* Cover Image */}
       <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-100">
-        <img src={spot.coverImage} alt={spot.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        <img src={spot.coverImage} alt={spot.title || spot.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-sm font-medium">
           {SPOT_TYPES[spot.type] || spot.type}
         </div>
@@ -517,7 +517,7 @@ export default function TourismDetail() {
       {/* Info Card */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
         <div className="flex items-start justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">{spot.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{spot.title || spot.name}</h1>
           <div>
             {spot.price > 0 ? (
               <div className="text-right">
@@ -684,7 +684,7 @@ export default function TourismDetail() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">景点名称</label>
             <input type="text" required className="w-full border border-gray-300 rounded-lg p-2"
-              value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+              value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -927,7 +927,7 @@ export default function Profile() {
                     <div key={spot.id} className="border border-gray-100 rounded-xl p-4 space-y-3 hover:shadow-sm transition-shadow">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-bold text-gray-900">{spot.name}</h4>
+                          <h4 className="font-bold text-gray-900">{spot.title || spot.name}</h4>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{getTypeLabel(spot.type)}</span>
                             <span className="text-xs text-gray-500 flex items-center gap-1">

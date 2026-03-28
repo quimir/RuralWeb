@@ -123,7 +123,7 @@ export const mockOrders = [
 export const mockTourismSpots = [
   {
     id: 1,
-    name: "张三采摘园",
+    title: "张三采摘园",
     description: "体验亲手采摘新鲜草莓的乐趣，适合家庭周末游。",
     type: "PICKING_GARDEN",
     address: "山东省烟台市牟平区XX村",
@@ -135,7 +135,7 @@ export const mockTourismSpots = [
   },
   {
     id: 2,
-    name: "李家村特色农家乐",
+    title: "李家村特色农家乐",
     description: "品尝地道农家菜，体验乡村慢生活，提供住宿。",
     type: "FARMSTAY",
     address: "四川省成都市郫都区XX村",
@@ -147,7 +147,7 @@ export const mockTourismSpots = [
   },
   {
     id: 3,
-    name: "绿野生态公园",
+    title: "绿野生态公园",
     description: "天然氧吧，徒步、骑行、露营的绝佳去处。",
     type: "ECO_PARK",
     address: "浙江省杭州市临安区XX山",
