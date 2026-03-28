@@ -87,10 +87,16 @@ export default function TourismDetail() {
   // Expand description
   const [descExpanded, setDescExpanded] = useState(false);
 
+  // eslint-disable-next-line eqeqeq
   const isOwner = userInfo && spot && (
-    userInfo.id === spot.creatorId ||
-    userInfo.id === spot.ownerId ||
-    userInfo.id === spot.userId
+    userInfo.id == spot.creatorId ||
+    userInfo.id == spot.ownerId ||
+    userInfo.id == spot.userId ||
+    userInfo.id == spot.merchantId ||
+    userInfo.id == spot.farmerId ||
+    (spot.creator && userInfo.id == spot.creator.id) ||
+    (spot.owner && userInfo.id == spot.owner.id) ||
+    (spot.user && userInfo.id == spot.user.id)
   );
   const isAdmin = userInfo?.role === "ADMIN";
   const canManage = isOwner || isAdmin;
@@ -483,19 +489,6 @@ export default function TourismDetail() {
                 <Trash2 className="w-4 h-4" />
                 删除
               </button>
-              {(spot.status === "APPROVED" || spot.status === "OFFLINE") && (
-                <button
-                  onClick={handleToggleSpotStatus}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    spot.status === "APPROVED"
-                      ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
-                      : "bg-green-50 text-green-600 hover:bg-green-100"
-                  }`}
-                >
-                  <Power className="w-4 h-4" />
-                  {spot.status === "APPROVED" ? "下架" : "上架"}
-                </button>
-              )}
             </>
           )}
           <button
@@ -510,38 +503,62 @@ export default function TourismDetail() {
         </div>
       </div>
 
-      {/* Status Banner for owner/admin with audit actions */}
-      {canManage && spot.status && spot.status !== "APPROVED" && (
+      {/* Status Banner for owner/admin: shows status + management actions */}
+      {canManage && spot.status && (
         <div className={`rounded-xl p-4 text-sm font-medium ${
+          spot.status === "APPROVED" ? 'bg-green-50 text-green-700 border border-green-100' :
           spot.status === "PENDING" ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' :
           spot.status === "REJECTED" ? 'bg-red-50 text-red-700 border border-red-100' :
+          spot.status === "OFFLINE" ? 'bg-gray-100 text-gray-600 border border-gray-200' :
           'bg-gray-50 text-gray-700 border border-gray-100'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Power className="w-4 h-4" />
-              当前状态：{spot.status === "PENDING" ? "待审核" : spot.status === "REJECTED" ? "已拒绝" : spot.status === "OFFLINE" ? "已下架" : spot.status}
+              当前状态：{
+                spot.status === "APPROVED" ? "已上架" :
+                spot.status === "PENDING" ? "待审核" :
+                spot.status === "REJECTED" ? "已拒绝" :
+                spot.status === "OFFLINE" ? "已下架" : spot.status
+              }
             </div>
-            {isAdmin && spot.status === "PENDING" && (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              {/* Admin audit actions for PENDING spots */}
+              {isAdmin && spot.status === "PENDING" && (
+                <>
+                  <button
+                    onClick={() => setShowRejectModal(true)}
+                    disabled={auditing}
+                    className="flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50 bg-white"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    拒绝
+                  </button>
+                  <button
+                    onClick={handleApproveSpot}
+                    disabled={auditing}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    {auditing ? "处理中..." : "通过审核"}
+                  </button>
+                </>
+              )}
+              {/* Offline/Online toggle for APPROVED or OFFLINE spots */}
+              {(spot.status === "APPROVED" || spot.status === "OFFLINE") && (
                 <button
-                  onClick={() => setShowRejectModal(true)}
-                  disabled={auditing}
-                  className="flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50 bg-white"
+                  onClick={handleToggleSpotStatus}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    spot.status === "APPROVED"
+                      ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border border-yellow-300"
+                      : "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
+                  }`}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  拒绝
+                  <Power className="w-3.5 h-3.5" />
+                  {spot.status === "APPROVED" ? "下架景点" : "重新上架"}
                 </button>
-                <button
-                  onClick={handleApproveSpot}
-                  disabled={auditing}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  {auditing ? "处理中..." : "通过审核"}
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
