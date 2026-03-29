@@ -189,7 +189,7 @@ export default function TourismRoutes() {
           ...updated[dayIndex].spots,
           {
             spotId: spot.id,
-            spotName: spot.title || spot.name,
+            spotName: spot.title,
             visitTime: addSpotForm.visitTime,
             durationMinutes: addSpotForm.durationMinutes,
             notes: addSpotForm.notes,
@@ -772,7 +772,7 @@ export default function TourismRoutes() {
                     <img src={spot.coverImage} alt="" className="w-12 h-12 rounded-lg object-cover bg-gray-100" referrerPolicy="no-referrer" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <h5 className="text-sm font-medium text-gray-900 truncate">{spot.title || spot.name}</h5>
+                    <h5 className="text-sm font-medium text-gray-900 truncate">{spot.title}</h5>
                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3 shrink-0" />
                       <span className="truncate">{spot.address}</span>

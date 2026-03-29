@@ -13,8 +13,8 @@ import { Modal } from "../components/ui/Modal";
 const SPOT_TYPES = [
   { value: "PICKING_GARDEN", label: "采摘园" },
   { value: "FARMSTAY", label: "农家乐" },
-  { value: "ECO_PARK", label: "生态公园" },
-  { value: "FOLK_EXPERIENCE", label: "民俗体验" },
+  { value: "AGRI_EXPERIENCE", label: "农事体验" },
+  { value: "FOLK_CULTURE", label: "民俗文化" },
   { value: "SCENIC_SPOT", label: "风景区" },
 ];
 
@@ -927,7 +927,7 @@ export default function Profile() {
                     <div key={spot.id} className="border border-gray-100 rounded-xl p-4 space-y-3 hover:shadow-sm transition-shadow">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-bold text-gray-900">{spot.title || spot.name}</h4>
+                          <h4 className="font-bold text-gray-900">{spot.title}</h4>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{getTypeLabel(spot.type)}</span>
                             <span className="text-xs text-gray-500 flex items-center gap-1">

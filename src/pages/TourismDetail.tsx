@@ -16,8 +16,8 @@ import { motion } from "motion/react";
 const SPOT_TYPES: Record<string, string> = {
   PICKING_GARDEN: "采摘园",
   FARMSTAY: "农家乐",
-  ECO_PARK: "生态公园",
-  FOLK_EXPERIENCE: "民俗体验",
+  AGRI_EXPERIENCE: "农事体验",
+  FOLK_CULTURE: "民俗文化",
   SCENIC_SPOT: "风景区",
 };
 
@@ -57,9 +57,8 @@ export default function TourismDetail() {
   // Edit Spot
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
-    title: "", type: "PICKING_GARDEN", address: "", description: "",
-    coverImage: "", price: "", openTime: "", contactPhone: "",
-    startDate: "", endDate: ""
+    title: "", type: "PICKING_GARDEN", address: "", summary: "", content: "",
+    coverImage: "", ticketPrice: "", openingHours: "", contactPhone: "",
   });
 
   // Add Ticket
@@ -88,16 +87,7 @@ export default function TourismDetail() {
   const [descExpanded, setDescExpanded] = useState(false);
 
   // eslint-disable-next-line eqeqeq
-  const isOwner = userInfo && spot && (
-    userInfo.id == spot.creatorId ||
-    userInfo.id == spot.ownerId ||
-    userInfo.id == spot.userId ||
-    userInfo.id == spot.merchantId ||
-    userInfo.id == spot.farmerId ||
-    (spot.creator && userInfo.id == spot.creator.id) ||
-    (spot.owner && userInfo.id == spot.owner.id) ||
-    (spot.user && userInfo.id == spot.user.id)
-  );
+  const isOwner = userInfo && spot && userInfo.id == spot.publisherId;
   const isAdmin = userInfo?.role === "ADMIN";
   const canManage = isOwner || isAdmin;
 
@@ -126,11 +116,12 @@ export default function TourismDetail() {
       setSpot(data);
       if (data) {
         setEditForm({
-          title: data.title || data.name || "", type: data.type || "PICKING_GARDEN",
-          address: data.address || "", description: data.description || "",
-          coverImage: data.coverImage || "", price: data.price || "",
-          openTime: data.openTime || "", contactPhone: data.contactPhone || "",
-          startDate: data.startDate || "", endDate: data.endDate || ""
+          title: data.title || "", type: data.type || "PICKING_GARDEN",
+          address: data.address || "", summary: data.summary || "",
+          content: data.content || "", coverImage: data.coverImage || "",
+          ticketPrice: data.ticketPrice ?? data.price ?? "",
+          openingHours: data.openingHours || data.openTime || "",
+          contactPhone: data.contactPhone || "",
         });
       }
     } catch (err) {
@@ -188,8 +179,15 @@ export default function TourismDetail() {
     e.preventDefault();
     try {
       const res = await api.put(`/tourism/spots/${id}`, {
-        ...editForm,
-        price: editForm.price ? parseFloat(editForm.price as string) : 0,
+        title: editForm.title,
+        type: editForm.type,
+        address: editForm.address,
+        summary: editForm.summary,
+        content: editForm.content || editForm.summary,
+        coverImage: editForm.coverImage,
+        ticketPrice: editForm.ticketPrice ? parseFloat(editForm.ticketPrice as string) : 0,
+        openingHours: editForm.openingHours,
+        contactPhone: editForm.contactPhone,
       });
       if (res.data.code === 200) {
         addToast("景点信息已更新", "success");
@@ -429,7 +427,7 @@ export default function TourismDetail() {
             visitDate: bookingForm.visitDate,
             checkIn: bookingForm.checkIn,
             checkOut: bookingForm.checkOut,
-            spotName: spot?.title || spot?.name,
+            spotName: spot?.title,
           });
           setPaymentSuccess(false);
           setShowPaymentModal(true);
@@ -565,14 +563,14 @@ export default function TourismDetail() {
 
       {/* Cover Image */}
       <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-100">
-        <img src={spot.coverImage} alt={spot.title || spot.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        <img src={spot.coverImage} alt={spot.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-sm font-medium">
           {SPOT_TYPES[spot.type] || spot.type}
         </div>
         <div className="absolute bottom-4 right-4 flex items-center gap-3">
           <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm font-bold text-gray-900 flex items-center gap-1">
             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-            {(spot.averageRating || spot.rating || (reviews.length > 0 ? (reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1) : 5))}
+            {(spot.avgRating || spot.averageRating || spot.rating || (reviews.length > 0 ? (reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1) : 5))}
             {(spot.reviewCount || reviews.length) > 0 && (
               <span className="text-xs text-gray-500 font-normal ml-0.5">({spot.reviewCount || reviews.length}评)</span>
             )}
@@ -593,11 +591,11 @@ export default function TourismDetail() {
       {/* Info Card */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
         <div className="flex items-start justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">{spot.title || spot.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{spot.title}</h1>
           <div>
-            {spot.price > 0 ? (
+            {(spot.ticketPrice || spot.price) > 0 ? (
               <div className="text-right">
-                <span className="text-2xl font-bold text-orange-600">{formatCurrency(spot.price)}</span>
+                <span className="text-2xl font-bold text-orange-600">{formatCurrency(spot.ticketPrice || spot.price)}</span>
                 <span className="text-xs text-gray-500 ml-1">起</span>
               </div>
             ) : (
@@ -607,17 +605,31 @@ export default function TourismDetail() {
         </div>
         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-1"><MapPin className="w-4 h-4" />{spot.address}</div>
-          {spot.openTime && <div className="flex items-center gap-1"><Clock className="w-4 h-4" />{spot.openTime}</div>}
+          {(spot.openingHours || spot.openTime) && <div className="flex items-center gap-1"><Clock className="w-4 h-4" />{spot.openingHours || spot.openTime}</div>}
           {spot.contactPhone && <div className="flex items-center gap-1"><Phone className="w-4 h-4" />{spot.contactPhone}</div>}
         </div>
+        {/* Reject Reason Banner for owner */}
+        {spot.status === "REJECTED" && spot.rejectReason && isOwner && (
+          <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+            <p className="text-xs text-red-500 font-medium mb-1">审核拒绝理由：</p>
+            <p className="text-sm text-red-700">{spot.rejectReason}</p>
+          </div>
+        )}
         <div className="relative">
-          <p className={`text-gray-600 leading-relaxed ${!descExpanded ? 'line-clamp-3' : ''}`}>{spot.description}</p>
-          {spot.description && spot.description.length > 150 && (
-            <button onClick={() => setDescExpanded(!descExpanded)} className="text-orange-600 text-sm font-medium mt-1 flex items-center gap-1">
-              {descExpanded ? '收起' : '展开全部'}
-              {descExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          )}
+          {(() => {
+            const desc = spot.content || spot.summary || spot.description || "";
+            return (
+              <>
+                <p className={`text-gray-600 leading-relaxed ${!descExpanded ? 'line-clamp-3' : ''}`}>{desc}</p>
+                {desc.length > 150 && (
+                  <button onClick={() => setDescExpanded(!descExpanded)} className="text-orange-600 text-sm font-medium mt-1 flex items-center gap-1">
+                    {descExpanded ? '收起' : '展开全部'}
+                    {descExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -698,7 +710,7 @@ export default function TourismDetail() {
       </div>
 
       {/* No tickets fallback */}
-      {tickets.length === 0 && spot.price > 0 && !canManage && (
+      {tickets.length === 0 && (spot.ticketPrice || spot.price) > 0 && !canManage && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
           <p className="text-gray-500 mb-3">暂无在线票型，请联系景点预约</p>
           {spot.contactPhone && (
@@ -775,8 +787,14 @@ export default function TourismDetail() {
       </div>
 
       {/* Edit Spot Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="编辑景点">
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title={spot.status === "REJECTED" ? "修改并重新提交" : "编辑景点"}>
         <form onSubmit={handleEditSpot} className="space-y-4">
+          {spot.status === "REJECTED" && spot.rejectReason && (
+            <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+              <p className="text-xs text-red-500 font-medium mb-1">上次拒绝理由：</p>
+              <p className="text-sm text-red-700">{spot.rejectReason}</p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">景点名称</label>
             <input type="text" required className="w-full border border-gray-300 rounded-lg p-2"
@@ -791,9 +809,9 @@ export default function TourismDetail() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">票价</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">票价 (0为免费)</label>
               <input type="number" className="w-full border border-gray-300 rounded-lg p-2"
-                value={editForm.price} onChange={e => setEditForm({...editForm, price: e.target.value})} />
+                value={editForm.ticketPrice} onChange={e => setEditForm({...editForm, ticketPrice: e.target.value})} />
             </div>
           </div>
           <div>
@@ -803,21 +821,9 @@ export default function TourismDetail() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">开放起始日期</label>
-              <input type="date" className="w-full border border-gray-300 rounded-lg p-2"
-                value={editForm.startDate} onChange={e => setEditForm({...editForm, startDate: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">开放截止日期</label>
-              <input type="date" className="w-full border border-gray-300 rounded-lg p-2"
-                value={editForm.endDate} onChange={e => setEditForm({...editForm, endDate: e.target.value})} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">每日开放时间</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">开放时间</label>
               <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
-                value={editForm.openTime} onChange={e => setEditForm({...editForm, openTime: e.target.value})} />
+                value={editForm.openingHours} onChange={e => setEditForm({...editForm, openingHours: e.target.value})} placeholder="08:00-18:00" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
@@ -834,13 +840,22 @@ export default function TourismDetail() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
-            <textarea required className="w-full border border-gray-300 rounded-lg p-2" rows={4}
-              value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} />
+            <label className="block text-sm font-medium text-gray-700 mb-1">简介</label>
+            <textarea required className="w-full border border-gray-300 rounded-lg p-2" rows={2}
+              value={editForm.summary} onChange={e => setEditForm({...editForm, summary: e.target.value})}
+              placeholder="简要描述景点特色（列表页展示）" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">详细介绍</label>
+            <textarea className="w-full border border-gray-300 rounded-lg p-2" rows={4}
+              value={editForm.content} onChange={e => setEditForm({...editForm, content: e.target.value})}
+              placeholder="详细介绍景点信息（详情页展示）" />
           </div>
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">取消</button>
-            <button type="submit" className="flex-1 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">保存修改</button>
+            <button type="submit" className="flex-1 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+              {spot.status === "REJECTED" ? "重新提交审核" : "保存修改"}
+            </button>
           </div>
         </form>
       </Modal>

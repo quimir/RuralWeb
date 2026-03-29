@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { formatCurrency } from "../lib/utils";
-import { MapPin, Star, Calendar, Plus, X, Search, Check, XCircle, Eye } from "lucide-react";
+import { MapPin, Star, Plus, Search, Check, XCircle, Eye, AlertTriangle, Edit } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
@@ -12,8 +12,8 @@ import { ImageUpload } from "../components/ui/ImageUpload";
 const SPOT_TYPES = [
   { value: "PICKING_GARDEN", label: "采摘园" },
   { value: "FARMSTAY", label: "农家乐" },
-  { value: "ECO_PARK", label: "生态公园" },
-  { value: "FOLK_EXPERIENCE", label: "民俗体验" },
+  { value: "AGRI_EXPERIENCE", label: "农事体验" },
+  { value: "FOLK_CULTURE", label: "民俗文化" },
   { value: "SCENIC_SPOT", label: "风景区" },
 ];
 
@@ -34,13 +34,12 @@ export default function Tourism() {
     title: "",
     type: "PICKING_GARDEN",
     address: "",
-    description: "",
+    summary: "",
+    content: "",
     coverImage: "https://picsum.photos/seed/spot/800/600",
-    price: "",
-    openTime: "08:00-18:00",
+    ticketPrice: "",
+    openingHours: "08:00-18:00",
     contactPhone: "",
-    startDate: "",
-    endDate: "",
   });
 
   // Featured Route
@@ -50,6 +49,12 @@ export default function Tourism() {
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const [pendingSpots, setPendingSpots] = useState<any[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [showRejectInput, setShowRejectInput] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  // Merchant rejected spots
+  const [rejectedSpots, setRejectedSpots] = useState<any[]>([]);
+  const [showRejectedPanel, setShowRejectedPanel] = useState(false);
 
   const fetchSpots = async () => {
     try {
@@ -65,9 +70,22 @@ export default function Tourism() {
     }
   };
 
+  const fetchRejectedSpots = async () => {
+    try {
+      const res = await api.get("/tourism/spots/my?status=REJECTED");
+      const data = res.data?.data?.records || res.data?.data || [];
+      setRejectedSpots(Array.isArray(data) ? data : []);
+    } catch {
+      // API may not exist, ignore
+    }
+  };
+
   useEffect(() => {
     fetchSpots();
     fetchFeaturedRoute();
+    if (userInfo && ["MERCHANT", "FARMER"].includes(userInfo.role)) {
+      fetchRejectedSpots();
+    }
   }, [typeFilter]);
 
   const fetchFeaturedRoute = async () => {
@@ -92,11 +110,16 @@ export default function Tourism() {
     e.preventDefault();
     try {
       const payload: any = {
-        ...newSpot,
-        price: newSpot.price ? parseFloat(newSpot.price) : 0,
+        title: newSpot.title,
+        type: newSpot.type,
+        address: newSpot.address,
+        summary: newSpot.summary,
+        content: newSpot.content || newSpot.summary,
+        coverImage: newSpot.coverImage,
+        ticketPrice: newSpot.ticketPrice ? parseFloat(newSpot.ticketPrice) : 0,
+        openingHours: newSpot.openingHours,
+        contactPhone: newSpot.contactPhone,
       };
-      if (!payload.startDate) delete payload.startDate;
-      if (!payload.endDate) delete payload.endDate;
       const res = await api.post("/tourism/spots", payload);
       if (res.data.code === 200) {
         const isAdminUser = userInfo?.role === "ADMIN";
@@ -106,13 +129,12 @@ export default function Tourism() {
           title: "",
           type: "PICKING_GARDEN",
           address: "",
-          description: "",
+          summary: "",
+          content: "",
           coverImage: "https://picsum.photos/seed/spot/800/600",
-          price: "",
-          openTime: "08:00-18:00",
+          ticketPrice: "",
+          openingHours: "08:00-18:00",
           contactPhone: "",
-          startDate: "",
-          endDate: "",
         });
         fetchSpots();
       } else {
@@ -136,14 +158,16 @@ export default function Tourism() {
     }
   };
 
-  const handleAudit = async (spotId: number, approved: boolean) => {
+  const handleAudit = async (spotId: number, approved: boolean, reason?: string) => {
     try {
       const res = await api.put(`/admin/tourism/spots/${spotId}/audit`, {
         approved,
-        reason: approved ? "审核通过" : "信息不完善，请补充后重新提交",
+        reason: approved ? "审核通过" : (reason || "信息不完善，请补充后重新提交"),
       });
       if (res.data.code === 200) {
         addToast(approved ? "已通过审核" : "已拒绝", "success");
+        setShowRejectInput(null);
+        setRejectReason("");
         fetchPendingSpots();
         fetchSpots();
       } else {
@@ -161,6 +185,7 @@ export default function Tourism() {
 
   const canPublishSpot = userInfo && ["ADMIN", "MERCHANT", "FARMER"].includes(userInfo.role);
   const isAdmin = userInfo?.role === "ADMIN";
+  const isMerchantOrFarmer = userInfo && ["MERCHANT", "FARMER"].includes(userInfo.role);
 
   return (
     <div className="space-y-6">
@@ -181,6 +206,24 @@ export default function Tourism() {
           )}
         </div>
       </div>
+
+      {/* Merchant: Rejected Spots Banner */}
+      {isMerchantOrFarmer && rejectedSpots.length > 0 && (
+        <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-red-700">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              您有 {rejectedSpots.length} 个景点未通过审核，请查看拒绝原因并修改后重新提交
+            </span>
+          </div>
+          <button
+            onClick={() => setShowRejectedPanel(true)}
+            className="text-xs bg-white border border-red-200 text-red-600 px-3 py-1 rounded-lg hover:bg-red-50"
+          >
+            查看详情
+          </button>
+        </div>
+      )}
 
       {/* Admin Audit Banner */}
       {isAdmin && (
@@ -300,7 +343,7 @@ export default function Tourism() {
               <div className="relative aspect-video overflow-hidden bg-gray-100">
                 <img
                   src={spot.coverImage}
-                  alt={spot.title || spot.name}
+                  alt={spot.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
@@ -309,29 +352,29 @@ export default function Tourism() {
                 </div>
                 <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-md text-xs font-bold text-gray-900 flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                  {spot.averageRating ?? spot.rating ?? 5}
+                  {spot.avgRating ?? spot.averageRating ?? spot.rating ?? 5}
                   <span className="font-normal text-gray-500">({spot.reviewCount || 0}评)</span>
                 </div>
               </div>
 
               <div className="p-5 flex flex-col flex-1">
                 <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  {spot.title || spot.name}
+                  {spot.title}
                 </h3>
                 <div className="flex items-start gap-1.5 text-xs text-gray-500 mb-3">
                   <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="line-clamp-1">{spot.address}</span>
                 </div>
                 <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-1">
-                  {spot.description}
+                  {spot.summary || spot.description}
                 </p>
 
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
                   <div>
-                    {spot.price > 0 ? (
+                    {(spot.ticketPrice || spot.price) > 0 ? (
                       <>
                         <span className="text-lg font-bold text-orange-600">
-                          {formatCurrency(spot.price)}
+                          {formatCurrency(spot.ticketPrice || spot.price)}
                         </span>
                         <span className="text-xs text-gray-500">起</span>
                       </>
@@ -388,8 +431,8 @@ export default function Tourism() {
               <input
                 type="number"
                 className="w-full border border-gray-300 rounded-lg p-2"
-                value={newSpot.price}
-                onChange={e => setNewSpot({...newSpot, price: e.target.value})}
+                value={newSpot.ticketPrice}
+                onChange={e => setNewSpot({...newSpot, ticketPrice: e.target.value})}
                 placeholder="0"
               />
             </div>
@@ -406,34 +449,12 @@ export default function Tourism() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">开放起始日期</label>
-              <input
-                type="date"
-                required
-                className="w-full border border-gray-300 rounded-lg p-2"
-                value={newSpot.startDate}
-                onChange={e => setNewSpot({...newSpot, startDate: e.target.value})}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">开放截止日期</label>
-              <input
-                type="date"
-                required
-                className="w-full border border-gray-300 rounded-lg p-2"
-                value={newSpot.endDate}
-                onChange={e => setNewSpot({...newSpot, endDate: e.target.value})}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">每日开放时间</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">开放时间</label>
               <input
                 type="text"
                 className="w-full border border-gray-300 rounded-lg p-2"
-                value={newSpot.openTime}
-                onChange={e => setNewSpot({...newSpot, openTime: e.target.value})}
+                value={newSpot.openingHours}
+                onChange={e => setNewSpot({...newSpot, openingHours: e.target.value})}
                 placeholder="08:00-18:00"
               />
             </div>
@@ -456,13 +477,24 @@ export default function Tourism() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">简介</label>
             <textarea
               required
               className="w-full border border-gray-300 rounded-lg p-2"
+              rows={2}
+              value={newSpot.summary}
+              onChange={e => setNewSpot({...newSpot, summary: e.target.value})}
+              placeholder="简要描述景点特色（列表页展示）"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">详细介绍</label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-2"
               rows={4}
-              value={newSpot.description}
-              onChange={e => setNewSpot({...newSpot, description: e.target.value})}
+              value={newSpot.content}
+              onChange={e => setNewSpot({...newSpot, content: e.target.value})}
+              placeholder="详细介绍景点信息（详情页展示，可选）"
             />
           </div>
           <div className="flex gap-3 mt-6">
@@ -486,7 +518,7 @@ export default function Tourism() {
       {/* Admin Audit Panel */}
       <Modal
         isOpen={showAuditPanel}
-        onClose={() => setShowAuditPanel(false)}
+        onClose={() => { setShowAuditPanel(false); setShowRejectInput(null); setRejectReason(""); }}
         title="景点审核"
       >
         <div className="space-y-4">
@@ -499,26 +531,92 @@ export default function Tourism() {
               <div key={spot.id} className="border border-gray-100 rounded-xl p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-bold text-gray-900">{spot.title || spot.name}</h4>
+                    <h4 className="font-bold text-gray-900">{spot.title}</h4>
                     <span className="text-xs text-gray-500">{getTypeLabel(spot.type)} · {spot.address}</span>
                   </div>
                   <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md font-medium">待审核</span>
                 </div>
-                <p className="text-sm text-gray-600 line-clamp-2">{spot.description}</p>
-                <div className="flex gap-2 justify-end">
+                <p className="text-sm text-gray-600 line-clamp-2">{spot.summary || spot.description}</p>
+                {showRejectInput === spot.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                      rows={3}
+                      placeholder="请输入拒绝理由，将发送给发布者..."
+                      value={rejectReason}
+                      onChange={e => setRejectReason(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => { setShowRejectInput(null); setRejectReason(""); }}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={() => handleAudit(spot.id, false, rejectReason)}
+                        className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+                      >
+                        确认拒绝
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => { setShowRejectInput(spot.id); setRejectReason(""); }}
+                      className="flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      拒绝
+                    </button>
+                    <button
+                      onClick={() => handleAudit(spot.id, true)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+                    >
+                      <Check className="w-4 h-4" />
+                      通过
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
+
+      {/* Merchant: Rejected Spots Detail Panel */}
+      <Modal
+        isOpen={showRejectedPanel}
+        onClose={() => setShowRejectedPanel(false)}
+        title="被拒绝的景点"
+      >
+        <div className="space-y-4">
+          {rejectedSpots.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">暂无被拒绝的景点</div>
+          ) : (
+            rejectedSpots.map(spot => (
+              <div key={spot.id} className="border border-red-100 rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-bold text-gray-900">{spot.title}</h4>
+                    <span className="text-xs text-gray-500">{getTypeLabel(spot.type)} · {spot.address}</span>
+                  </div>
+                  <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-md font-medium">已拒绝</span>
+                </div>
+                <p className="text-sm text-gray-600 line-clamp-2">{spot.summary || spot.description}</p>
+                <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                  <p className="text-xs text-red-500 font-medium mb-1">拒绝理由：</p>
+                  <p className="text-sm text-red-700">{spot.rejectReason || "未提供具体理由"}</p>
+                </div>
+                <div className="flex justify-end">
                   <button
-                    onClick={() => handleAudit(spot.id, false)}
-                    className="flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50"
+                    onClick={() => { setShowRejectedPanel(false); navigate(`/tourism/${spot.id}`); }}
+                    className="flex items-center gap-1 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700"
                   >
-                    <XCircle className="w-4 h-4" />
-                    拒绝
-                  </button>
-                  <button
-                    onClick={() => handleAudit(spot.id, true)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-                  >
-                    <Check className="w-4 h-4" />
-                    通过
+                    <Edit className="w-4 h-4" />
+                    修改并重新提交
                   </button>
                 </div>
               </div>
