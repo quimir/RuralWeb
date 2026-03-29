@@ -64,7 +64,8 @@ export default function TourismDetail() {
   // Add Ticket
   const [showAddTicketModal, setShowAddTicketModal] = useState(false);
   const [newTicket, setNewTicket] = useState({
-    name: "", category: "TICKET", price: "", dailyQuota: "", description: ""
+    name: "", category: "TICKET", price: "", dailyCapacity: "",
+    description: "", minQuantity: "1", maxQuantity: "10", advanceDays: "0"
   });
 
   // Payment Modal (after booking created)
@@ -262,14 +263,19 @@ export default function TourismDetail() {
     e.preventDefault();
     try {
       const res = await api.post(`/tourism/spots/${id}/tickets`, {
-        ...newTicket,
+        name: newTicket.name,
+        description: newTicket.description,
         price: parseFloat(newTicket.price as string),
-        dailyQuota: parseInt(newTicket.dailyQuota as string),
+        category: newTicket.category,
+        dailyCapacity: parseInt(newTicket.dailyCapacity as string),
+        minQuantity: parseInt(newTicket.minQuantity as string) || 1,
+        maxQuantity: parseInt(newTicket.maxQuantity as string) || 10,
+        advanceDays: parseInt(newTicket.advanceDays as string) || 0,
       });
       if (res.data.code === 200) {
         addToast("票型添加成功", "success");
         setShowAddTicketModal(false);
-        setNewTicket({ name: "", category: "TICKET", price: "", dailyQuota: "", description: "" });
+        setNewTicket({ name: "", category: "TICKET", price: "", dailyCapacity: "", description: "", minQuantity: "1", maxQuantity: "10", advanceDays: "0" });
         fetchTickets();
       } else { addToast(res.data.message || "添加失败", "error"); }
     } catch (err) { addToast("添加失败", "error"); }
@@ -670,14 +676,17 @@ export default function TourismDetail() {
                   <p className="text-xs text-gray-500 mt-1">
                     {ticket.category === "ROOM" ? "住宿" : "门票"}
                     {ticket.description && ` · ${ticket.description}`}
+                    {ticket.advanceDays > 0 && ` · 需提前${ticket.advanceDays}天预订`}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <div className="text-lg font-bold text-orange-600">{formatCurrency(ticket.price)}</div>
-                    {ticket.remainingQuota !== undefined && (
-                      <div className="text-xs text-gray-400">余 {ticket.remainingQuota}</div>
-                    )}
+                    {(ticket.remaining !== undefined && ticket.remaining !== null) ? (
+                      <div className="text-xs text-gray-400">余 {ticket.remaining}/{ticket.dailyCapacity}</div>
+                    ) : ticket.dailyCapacity ? (
+                      <div className="text-xs text-gray-400">日限 {ticket.dailyCapacity}</div>
+                    ) : null}
                   </div>
                   {canManage && (
                     <>
@@ -864,34 +873,83 @@ export default function TourismDetail() {
       <Modal isOpen={showAddTicketModal} onClose={() => setShowAddTicketModal(false)} title="添加票型">
         <form onSubmit={handleAddTicket} className="space-y-4">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">类型</label>
+            <select className="w-full border border-gray-300 rounded-lg p-2"
+              value={newTicket.category} onChange={e => setNewTicket({...newTicket, category: e.target.value, name: ""})}>
+              <option value="TICKET">门票</option>
+              <option value="ROOM">住宿</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">票型名称</label>
             <input type="text" required className="w-full border border-gray-300 rounded-lg p-2"
-              value={newTicket.name} onChange={e => setNewTicket({...newTicket, name: e.target.value})} placeholder="如：成人票、亲子套票" />
+              value={newTicket.name} onChange={e => setNewTicket({...newTicket, name: e.target.value})}
+              placeholder={newTicket.category === "ROOM" ? "如：标准间、大床房、豪华套房" : "如：成人票、儿童票、家庭套票"} />
+            {newTicket.category === "ROOM" && (
+              <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                {["标准间", "大床房", "双人间", "豪华套房", "家庭房", "单人间"].map(s => (
+                  <button key={s} type="button"
+                    onClick={() => setNewTicket({...newTicket, name: s})}
+                    className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+                      newTicket.name === s ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >{s}</button>
+                ))}
+              </div>
+            )}
+            {newTicket.category === "TICKET" && (
+              <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                {["成人票", "儿童票", "家庭套票", "VIP体验票", "团体票"].map(s => (
+                  <button key={s} type="button"
+                    onClick={() => setNewTicket({...newTicket, name: s})}
+                    className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+                      newTicket.name === s ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >{s}</button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">类型</label>
-              <select className="w-full border border-gray-300 rounded-lg p-2"
-                value={newTicket.category} onChange={e => setNewTicket({...newTicket, category: e.target.value})}>
-                <option value="TICKET">门票</option>
-                <option value="ROOM">住宿</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">单价</label>
-              <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {newTicket.category === "ROOM" ? "每晚价格" : "单价"}
+              </label>
+              <input type="number" required min="0" step="0.01" className="w-full border border-gray-300 rounded-lg p-2"
                 value={newTicket.price} onChange={e => setNewTicket({...newTicket, price: e.target.value})} />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {newTicket.category === "ROOM" ? "每日房间数" : "每日容量"}
+              </label>
+              <input type="number" required min="1" className="w-full border border-gray-300 rounded-lg p-2"
+                value={newTicket.dailyCapacity} onChange={e => setNewTicket({...newTicket, dailyCapacity: e.target.value})}
+                placeholder={newTicket.category === "ROOM" ? "可预订房间数" : "每日最大接待人数"} />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">最少预订</label>
+              <input type="number" min="1" className="w-full border border-gray-300 rounded-lg p-2"
+                value={newTicket.minQuantity} onChange={e => setNewTicket({...newTicket, minQuantity: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">最多预订</label>
+              <input type="number" min="1" className="w-full border border-gray-300 rounded-lg p-2"
+                value={newTicket.maxQuantity} onChange={e => setNewTicket({...newTicket, maxQuantity: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">提前天数</label>
+              <input type="number" min="0" className="w-full border border-gray-300 rounded-lg p-2"
+                value={newTicket.advanceDays} onChange={e => setNewTicket({...newTicket, advanceDays: e.target.value})}
+                title="需要提前几天预订，0表示当天可订" />
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">每日限额</label>
-            <input type="number" required className="w-full border border-gray-300 rounded-lg p-2"
-              value={newTicket.dailyQuota} onChange={e => setNewTicket({...newTicket, dailyQuota: e.target.value})} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述 (可选)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
             <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
-              value={newTicket.description} onChange={e => setNewTicket({...newTicket, description: e.target.value})} />
+              value={newTicket.description} onChange={e => setNewTicket({...newTicket, description: e.target.value})}
+              placeholder={newTicket.category === "ROOM" ? "如：大床房，含早餐，独立卫浴" : "如：含入园+采摘体验，可带走2斤水果"} />
           </div>
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={() => setShowAddTicketModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">取消</button>
