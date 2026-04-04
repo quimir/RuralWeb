@@ -319,7 +319,7 @@ export default function Products() {
                     <span className="bg-black/70 text-white px-4 py-2 rounded-lg font-medium tracking-widest">已下架</span>
                   </div>
                 )}
-                {canManageProducts && userInfo?.id === product.sellerId && (
+                {canManageProducts && userInfo?.id == product.sellerId && (
                   <button
                     onClick={(e) => handleDelete(e, product.id)}
                     className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full hover:bg-red-50 transition-colors z-10"
@@ -458,6 +458,7 @@ export default function Products() {
                   value={newProduct.coverImage}
                   onChange={(url) => setNewProduct({...newProduct, coverImage: url})}
                   placeholder="上传商品图片"
+                  showCacheOptions
                 />
               </div>
               <div>
