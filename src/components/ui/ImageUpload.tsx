@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Upload, X, Image as ImageIcon, Loader2, HardDrive, RefreshCw } from "lucide-react";
 import { api } from "../../api/client";
 import { useToast } from "../../store/useToast";
@@ -10,17 +10,19 @@ interface ImageUploadProps {
   className?: string;
   accept?: string;
   maxSizeMB?: number;
-  /** Show local cache button */
+  /** Show local cache import / cache-to-local buttons */
   showCacheOptions?: boolean;
 }
 
 /**
- * ImageUpload component - supports upload, local cache import, and base64 fallback
+ * ImageUpload component
  *
- * 后端接口:
- * 1. POST /api/v1/upload/image           - 上传图片到服务器
+ * 所有图片统一走后端接口：
+ * 1. POST /api/v1/upload/image           - 上传图片到服务器，返回URL
  * 2. POST /api/v1/cache/import-local     - 从本地路径导入图片到缓存
  * 3. POST /api/v1/cache/cache-uploaded   - 缓存已上传图片到本地
+ *
+ * 前端只做显示，不做base64回退。上传失败就是失败，不会用本地预览蒙混过关。
  */
 export function ImageUpload({
   value,
@@ -33,11 +35,13 @@ export function ImageUpload({
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string>(value || "");
   const [dragOver, setDragOver] = useState(false);
   const [showLocalImport, setShowLocalImport] = useState(false);
   const [localPath, setLocalPath] = useState("");
   const { addToast } = useToast();
+
+  // previewUrl always synced with external value prop
+  const previewUrl = value || "";
 
   const handleFileSelect = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -48,9 +52,6 @@ export function ImageUpload({
       addToast(`图片大小不能超过 ${maxSizeMB}MB`, "error");
       return;
     }
-
-    const localPreview = URL.createObjectURL(file);
-    setPreviewUrl(localPreview);
 
     setUploading(true);
     try {
@@ -63,24 +64,14 @@ export function ImageUpload({
 
       if (res.data?.code === 200 && res.data?.data?.url) {
         const uploadedUrl = res.data.data.url;
-        setPreviewUrl(uploadedUrl);
         onChange(uploadedUrl);
         addToast("图片上传成功", "success");
       } else {
-        const base64 = await fileToBase64(file);
-        setPreviewUrl(base64);
-        onChange(base64);
-        addToast("图片已加载（本地预览模式）", "info");
+        addToast(res.data?.message || "图片上传失败", "error");
       }
-    } catch {
-      try {
-        const base64 = await fileToBase64(file);
-        setPreviewUrl(base64);
-        onChange(base64);
-        addToast("图片已加载（后端暂不支持上传，使用本地预览）", "info");
-      } catch {
-        addToast("图片加载失败", "error");
-      }
+    } catch (err: any) {
+      console.error("Image upload failed:", err);
+      addToast("图片上传失败，请检查网络或后端服务", "error");
     } finally {
       setUploading(false);
     }
@@ -96,9 +87,7 @@ export function ImageUpload({
     try {
       const res = await api.post("/cache/import-local", { filePath: localPath.trim() });
       if (res.data?.code === 200 && res.data?.data?.url) {
-        const cachedUrl = res.data.data.url;
-        setPreviewUrl(cachedUrl);
-        onChange(cachedUrl);
+        onChange(res.data.data.url);
         setShowLocalImport(false);
         setLocalPath("");
         addToast("本地图片导入成功", "success");
@@ -114,17 +103,15 @@ export function ImageUpload({
 
   /** Cache an already-uploaded image to local storage via /api/v1/cache/cache-uploaded */
   const handleCacheToLocal = async () => {
-    if (!previewUrl || previewUrl.startsWith("data:") || previewUrl.startsWith("blob:")) {
-      addToast("没有可缓存的已上传图片", "error");
+    if (!previewUrl) {
+      addToast("没有可缓存的图片", "error");
       return;
     }
     setUploading(true);
     try {
       const res = await api.post("/cache/cache-uploaded", { uploadUrl: previewUrl });
       if (res.data?.code === 200 && res.data?.data?.url) {
-        const cachedUrl = res.data.data.url;
-        setPreviewUrl(cachedUrl);
-        onChange(cachedUrl);
+        onChange(res.data.data.url);
         addToast("图片已缓存到本地", "success");
       } else {
         addToast(res.data?.message || "缓存失败", "error");
@@ -134,15 +121,6 @@ export function ImageUpload({
     } finally {
       setUploading(false);
     }
-  };
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,14 +136,8 @@ export function ImageUpload({
   };
 
   const handleRemove = () => {
-    setPreviewUrl("");
     onChange("");
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleUrlInput = (url: string) => {
-    setPreviewUrl(url);
-    onChange(url);
   };
 
   return (
@@ -191,6 +163,9 @@ export function ImageUpload({
               alt="preview"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
             />
             <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
               <span className="text-white text-sm font-medium bg-black/50 px-3 py-1.5 rounded-lg">
@@ -238,8 +213,8 @@ export function ImageUpload({
           type="text"
           placeholder="或输入图片URL..."
           className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          value={previewUrl?.startsWith("data:") || previewUrl?.startsWith("blob:") ? "" : previewUrl || ""}
-          onChange={(e) => handleUrlInput(e.target.value)}
+          value={previewUrl}
+          onChange={(e) => onChange(e.target.value)}
         />
         {showCacheOptions && (
           <>
@@ -251,7 +226,7 @@ export function ImageUpload({
             >
               <HardDrive className="w-4 h-4" />
             </button>
-            {previewUrl && !previewUrl.startsWith("data:") && !previewUrl.startsWith("blob:") && previewUrl.startsWith("/uploads/") && (
+            {previewUrl && previewUrl.startsWith("/uploads/") && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); handleCacheToLocal(); }}
