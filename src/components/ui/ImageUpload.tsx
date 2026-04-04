@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2, HardDrive, RefreshCw } from "lucide-react";
 import { api } from "../../api/client";
 import { useToast } from "../../store/useToast";
 
@@ -10,95 +10,17 @@ interface ImageUploadProps {
   className?: string;
   accept?: string;
   maxSizeMB?: number;
+  /** Show local cache button */
+  showCacheOptions?: boolean;
 }
 
 /**
- * ImageUpload component - supports local file upload with backend fallback to base64
+ * ImageUpload component - supports upload, local cache import, and base64 fallback
  *
- * ===== 后端接口规约 =====
- *
- * 接口地址: POST /api/v1/upload/image
- * Content-Type: multipart/form-data
- * 请求字段: "file" (图片文件, 支持 JPG/PNG/GIF, 最大 5MB)
- * 认证: 需携带 Authorization: Bearer <token>
- *
- * 返回格式:
- * {
- *   "code": 200,
- *   "message": "success",
- *   "data": {
- *     "url": "/uploads/a1b2c3d4_product.jpg",
- *     "filename": "a1b2c3d4_product.jpg"
- *   }
- * }
- *
- * ===== Spring Boot 本地存储实现 =====
- *
- * 1. Controller:
- *
- * @RestController
- * @RequestMapping("/api/v1/upload")
- * public class FileUploadController {
- *
- *     @Value("${file.upload-dir:uploads}")
- *     private String uploadDir;
- *
- *     @PostMapping("/image")
- *     public Result<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
- *         // 校验文件类型
- *         String contentType = file.getContentType();
- *         if (contentType == null || !contentType.startsWith("image/")) {
- *             return Result.fail(400, "只允许上传图片文件");
- *         }
- *         // 校验文件大小 (5MB)
- *         if (file.getSize() > 5 * 1024 * 1024) {
- *             return Result.fail(400, "图片大小不能超过5MB");
- *         }
- *         // 生成唯一文件名
- *         String ext = file.getOriginalFilename() != null
- *             ? file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."))
- *             : ".jpg";
- *         String filename = UUID.randomUUID().toString().replace("-", "") + ext;
- *         // 按日期分目录存储
- *         String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
- *         Path dir = Paths.get(uploadDir, dateDir);
- *         Files.createDirectories(dir);
- *         Path filePath = dir.resolve(filename);
- *         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
- *         String url = "/uploads/" + dateDir + "/" + filename;
- *         return Result.success(Map.of("url", url, "filename", filename));
- *     }
- * }
- *
- * 2. 静态资源映射 (WebMvcConfigurer):
- *
- * @Configuration
- * public class WebMvcConfig implements WebMvcConfigurer {
- *     @Value("${file.upload-dir:uploads}")
- *     private String uploadDir;
- *
- *     @Override
- *     public void addResourceHandlers(ResourceHandlerRegistry registry) {
- *         registry.addResourceHandler("/uploads/**")
- *                 .addResourceLocations("file:" + uploadDir + "/");
- *     }
- * }
- *
- * 3. application.yml:
- *
- * file:
- *   upload-dir: uploads
- * spring:
- *   servlet:
- *     multipart:
- *       max-file-size: 5MB
- *       max-request-size: 10MB
- *
- * ===== 前端行为 =====
- * - 优先尝试上传到后端 POST /api/v1/upload/image
- * - 上传成功: 使用后端返回的 url 作为图片地址
- * - 上传失败(后端未实现): 自动降级为 base64 Data URL 本地预览模式
- * - 同时支持直接输入图片URL
+ * 后端接口:
+ * 1. POST /api/v1/upload/image           - 上传图片到服务器
+ * 2. POST /api/v1/cache/import-local     - 从本地路径导入图片到缓存
+ * 3. POST /api/v1/cache/cache-uploaded   - 缓存已上传图片到本地
  */
 export function ImageUpload({
   value,
@@ -107,31 +29,29 @@ export function ImageUpload({
   className = "",
   accept = "image/*",
   maxSizeMB = 5,
+  showCacheOptions = false,
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>(value || "");
   const [dragOver, setDragOver] = useState(false);
+  const [showLocalImport, setShowLocalImport] = useState(false);
+  const [localPath, setLocalPath] = useState("");
   const { addToast } = useToast();
 
   const handleFileSelect = async (file: File) => {
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       addToast("请选择图片文件", "error");
       return;
     }
-
-    // Validate file size
     if (file.size > maxSizeMB * 1024 * 1024) {
       addToast(`图片大小不能超过 ${maxSizeMB}MB`, "error");
       return;
     }
 
-    // Create local preview
     const localPreview = URL.createObjectURL(file);
     setPreviewUrl(localPreview);
 
-    // Try to upload to backend
     setUploading(true);
     try {
       const formData = new FormData();
@@ -147,14 +67,12 @@ export function ImageUpload({
         onChange(uploadedUrl);
         addToast("图片上传成功", "success");
       } else {
-        // Backend may not support upload yet, use local preview as base64 fallback
         const base64 = await fileToBase64(file);
         setPreviewUrl(base64);
         onChange(base64);
         addToast("图片已加载（本地预览模式）", "info");
       }
     } catch {
-      // Upload API not available, fallback to base64 data URL
       try {
         const base64 = await fileToBase64(file);
         setPreviewUrl(base64);
@@ -163,6 +81,56 @@ export function ImageUpload({
       } catch {
         addToast("图片加载失败", "error");
       }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /** Import image from local file path via /api/v1/cache/import-local */
+  const handleLocalImport = async () => {
+    if (!localPath.trim()) {
+      addToast("请输入本地文件路径", "error");
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await api.post("/cache/import-local", { filePath: localPath.trim() });
+      if (res.data?.code === 200 && res.data?.data?.url) {
+        const cachedUrl = res.data.data.url;
+        setPreviewUrl(cachedUrl);
+        onChange(cachedUrl);
+        setShowLocalImport(false);
+        setLocalPath("");
+        addToast("本地图片导入成功", "success");
+      } else {
+        addToast(res.data?.message || "导入失败", "error");
+      }
+    } catch {
+      addToast("本地图片导入失败", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /** Cache an already-uploaded image to local storage via /api/v1/cache/cache-uploaded */
+  const handleCacheToLocal = async () => {
+    if (!previewUrl || previewUrl.startsWith("data:") || previewUrl.startsWith("blob:")) {
+      addToast("没有可缓存的已上传图片", "error");
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await api.post("/cache/cache-uploaded", { uploadUrl: previewUrl });
+      if (res.data?.code === 200 && res.data?.data?.url) {
+        const cachedUrl = res.data.data.url;
+        setPreviewUrl(cachedUrl);
+        onChange(cachedUrl);
+        addToast("图片已缓存到本地", "success");
+      } else {
+        addToast(res.data?.message || "缓存失败", "error");
+      }
+    } catch {
+      addToast("缓存到本地失败", "error");
     } finally {
       setUploading(false);
     }
@@ -223,9 +191,6 @@ export function ImageUpload({
               alt="preview"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
-              onError={() => {
-                // If preview fails (e.g., invalid URL), keep the URL but show fallback
-              }}
             />
             <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
               <span className="text-white text-sm font-medium bg-black/50 px-3 py-1.5 rounded-lg">
@@ -253,7 +218,7 @@ export function ImageUpload({
                 <Upload className="w-8 h-8 text-gray-400 mb-2" />
                 <p className="text-sm text-gray-600 font-medium">{placeholder}</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  支持 JPG、PNG、GIF，最大 {maxSizeMB}MB
+                  支持 JPG、PNG、GIF、WebP，最大 {maxSizeMB}MB
                 </p>
               </>
             )}
@@ -266,17 +231,61 @@ export function ImageUpload({
         )}
       </div>
 
-      {/* URL input fallback */}
+      {/* URL input + cache options */}
       <div className="flex items-center gap-2">
         <ImageIcon className="w-4 h-4 text-gray-400 shrink-0" />
         <input
           type="text"
           placeholder="或输入图片URL..."
           className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          value={previewUrl?.startsWith("data:") ? "" : previewUrl || ""}
+          value={previewUrl?.startsWith("data:") || previewUrl?.startsWith("blob:") ? "" : previewUrl || ""}
           onChange={(e) => handleUrlInput(e.target.value)}
         />
+        {showCacheOptions && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowLocalImport(!showLocalImport); }}
+              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="从本地路径导入"
+            >
+              <HardDrive className="w-4 h-4" />
+            </button>
+            {previewUrl && !previewUrl.startsWith("data:") && !previewUrl.startsWith("blob:") && previewUrl.startsWith("/uploads/") && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleCacheToLocal(); }}
+                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="缓存到本地"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Local file import input */}
+      {showLocalImport && showCacheOptions && (
+        <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+          <input
+            type="text"
+            placeholder="输入本地文件路径，如 /home/user/photos/product.jpg"
+            className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+            value={localPath}
+            onChange={(e) => setLocalPath(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLocalImport()}
+          />
+          <button
+            type="button"
+            onClick={handleLocalImport}
+            disabled={uploading}
+            className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 whitespace-nowrap"
+          >
+            导入
+          </button>
+        </div>
+      )}
 
       <input
         ref={fileInputRef}
