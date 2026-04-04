@@ -334,10 +334,10 @@ export default function ProductDetail() {
           {allImages.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {allImages.map((img, idx) => (
-                <button
+                <div
                   key={img.id || idx}
                   onClick={() => setCurrentImageIndex(idx)}
-                  className={`relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-colors ${
+                  className={`group relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-colors cursor-pointer ${
                     idx === currentImageIndex ? 'border-green-500' : 'border-transparent hover:border-gray-300'
                   }`}
                 >
@@ -345,13 +345,12 @@ export default function ProductDetail() {
                   {isOwner && img.id > 0 && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteDetailImage(img.id); }}
-                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 hover:opacity-100"
-                      style={{ opacity: idx === currentImageIndex ? 1 : undefined }}
+                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   )}
-                </button>
+                </div>
               ))}
               {isOwner && (
                 <button

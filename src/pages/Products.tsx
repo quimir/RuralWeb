@@ -90,14 +90,14 @@ export default function Products() {
     }
 
     const rect = e.currentTarget.getBoundingClientRect();
-    setFlyingItem({ id: Date.now(), x: rect.left, y: rect.top, img: product.coverImage });
+    setFlyingItem({ id: Date.now(), x: rect.left, y: rect.top, img: product.imageUrl || product.coverImage });
     setTimeout(() => setFlyingItem(null), 800);
 
     addItem({
       id: Date.now(),
       productId: product.id,
       productName: product.name,
-      productImage: product.coverImage,
+      productImage: product.imageUrl || product.coverImage,
       unitPrice: product.price,
       quantity: 1,
       unit: product.unit,
@@ -306,7 +306,7 @@ export default function Products() {
             >
               <div className="relative aspect-square overflow-hidden bg-gray-100">
                 <img
-                  src={product.coverImage}
+                  src={product.imageUrl || product.coverImage}
                   alt={product.name}
                   className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isOffShelf ? 'grayscale opacity-60' : ''}`}
                   referrerPolicy="no-referrer"
