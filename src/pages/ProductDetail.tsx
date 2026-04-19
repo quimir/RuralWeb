@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { formatCurrency } from "../lib/utils";
-import { ShoppingCart, ArrowLeft, MapPin, Store, Tag, User, Edit, X, Power, Plus, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, ArrowLeft, MapPin, Store, Tag, User, Edit, X, Power, Plus, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Camera, Pencil } from "lucide-react";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useToast } from "../store/useToast";
@@ -35,6 +35,12 @@ export default function ProductDetail() {
   // Add detail image
   const [showAddImageModal, setShowAddImageModal] = useState(false);
   const [newImage, setNewImage] = useState({ imageUrl: "", caption: "", imageType: "DETAIL", sortOrder: "0" });
+
+  // Quick image replace (hover-to-edit on main image)
+  const [quickEdit, setQuickEdit] = useState<{ open: boolean; mode: "cover" | "detail" | null; targetImage: any }>({
+    open: false, mode: null, targetImage: null,
+  });
+  const [quickImageUrl, setQuickImageUrl] = useState("");
 
   // Edit Product State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -216,6 +222,45 @@ export default function ProductDetail() {
     });
   };
 
+  const openQuickEdit = (mode: "cover" | "detail", targetImage: any) => {
+    setQuickImageUrl(targetImage?.imageUrl || "");
+    setQuickEdit({ open: true, mode, targetImage });
+  };
+
+  const handleQuickSave = async () => {
+    if (!quickImageUrl) { addToast("请先选择图片", "error"); return; }
+    try {
+      if (quickEdit.mode === "cover") {
+        const res = await api.put(`/products/${id}`, {
+          name: product.name, price: product.price, unit: product.unit,
+          stock: product.stock, description: product.description,
+          origin: product.origin, status: product.status,
+          categoryId: product.categoryId, tags: product.tags,
+          imageUrl: quickImageUrl,
+        });
+        if (res.data.code === 200) {
+          addToast("封面图已更新", "success");
+          setQuickEdit({ open: false, mode: null, targetImage: null });
+          fetchProduct();
+        } else { addToast(res.data.message || "更新失败", "error"); }
+      } else if (quickEdit.mode === "detail" && quickEdit.targetImage?.id) {
+        // Replace: delete old + add new with same metadata
+        await api.delete(`/products/${id}/images/${quickEdit.targetImage.id}`);
+        const res = await api.post(`/products/${id}/images`, {
+          imageUrl: quickImageUrl,
+          caption: quickEdit.targetImage.caption || "",
+          imageType: quickEdit.targetImage.imageType || "DETAIL",
+          sortOrder: quickEdit.targetImage.sortOrder || 0,
+        });
+        if (res.data.code === 200) {
+          addToast("图片已更换", "success");
+          setQuickEdit({ open: false, mode: null, targetImage: null });
+          fetchDetailImages();
+        } else { addToast(res.data.message || "更换失败", "error"); }
+      }
+    } catch { addToast("操作失败", "error"); }
+  };
+
   // Build all images array: cover + detail images
   const allImages = [
     { id: 0, imageUrl: product?.imageUrl || product?.coverImage, caption: "封面图", imageType: "COVER" },
@@ -283,15 +328,36 @@ export default function ProductDetail() {
       <div className="grid md:grid-cols-2 gap-8 p-6 md:p-8">
         {/* Image Gallery */}
         <div className="space-y-3">
-          <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
+          <div className={`aspect-square rounded-xl overflow-hidden bg-gray-100 relative ${isOwner ? 'group' : ''}`}>
             <img
               src={currentImage?.imageUrl}
               alt={currentImage?.caption || product.name}
-              className={`w-full h-full object-cover ${isOffShelf ? 'grayscale opacity-70' : ''}`}
+              className={`w-full h-full object-cover transition-transform duration-300 ${isOwner ? 'group-hover:scale-105' : ''} ${isOffShelf ? 'grayscale opacity-70' : ''}`}
               referrerPolicy="no-referrer"
             />
+
+            {/* Owner hover overlay: click to replace image */}
+            {isOwner && (
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+                <button
+                  onClick={() => openQuickEdit(
+                    currentImageIndex === 0 ? "cover" : "detail",
+                    currentImageIndex === 0 ? { imageUrl: product.imageUrl || product.coverImage } : currentImage
+                  )}
+                  className="flex flex-col items-center gap-2 text-white hover:scale-110 transition-transform"
+                >
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 hover:bg-white/35 transition-colors shadow-lg">
+                    <Camera className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-semibold bg-black/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/20">
+                    {currentImageIndex === 0 ? '更换封面图' : '更换此图'}
+                  </span>
+                </button>
+              </div>
+            )}
+
             {isOffShelf && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
                 <span className="bg-black/70 text-white px-4 py-2 rounded-lg font-bold tracking-widest">已下架</span>
               </div>
             )}
@@ -299,24 +365,24 @@ export default function ProductDetail() {
               <>
                 <button
                   onClick={() => setCurrentImageIndex(Math.max(0, currentImageIndex - 1))}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/40 text-white rounded-full hover:bg-black/60 disabled:opacity-30"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/40 text-white rounded-full hover:bg-black/60 disabled:opacity-30 z-10"
                   disabled={currentImageIndex === 0}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setCurrentImageIndex(Math.min(allImages.length - 1, currentImageIndex + 1))}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/40 text-white rounded-full hover:bg-black/60 disabled:opacity-30"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/40 text-white rounded-full hover:bg-black/60 disabled:opacity-30 z-10"
                   disabled={currentImageIndex === allImages.length - 1}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full z-10">
                   {currentImageIndex + 1} / {allImages.length}
                 </div>
               </>
             )}
-            <div className="absolute top-4 left-4 flex flex-col gap-2">
+            <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
               {product.tags && product.tags.split(",").map((tag: string) => (
                 <span key={tag} className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-medium text-green-700 shadow-sm flex items-center gap-1">
                   <Tag className="w-3 h-3" />{tag}
@@ -324,7 +390,7 @@ export default function ProductDetail() {
               ))}
             </div>
             {currentImage?.imageType && currentImage.imageType !== "COVER" && (
-              <div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded-md">
+              <div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded-md z-10 pointer-events-none">
                 {IMAGE_TYPES.find(t => t.value === currentImage.imageType)?.label || currentImage.imageType}
               </div>
             )}
@@ -461,12 +527,22 @@ export default function ProductDetail() {
                   <p className="text-xs text-gray-500 mt-1 text-center">{img.caption}</p>
                 )}
                 {isOwner && (
-                  <button
-                    onClick={() => handleDeleteDetailImage(img.id)}
-                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openQuickEdit("detail", img)}
+                      className="p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 shadow-lg"
+                      title="替换图片"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDetailImage(img.id)}
+                      className="p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
+                      title="删除图片"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -593,6 +669,38 @@ export default function ProductDetail() {
             <button type="submit" className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">添加</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Quick Image Replace Modal */}
+      <Modal
+        isOpen={quickEdit.open}
+        onClose={() => setQuickEdit({ open: false, mode: null, targetImage: null })}
+        title={quickEdit.mode === "cover" ? "更换封面图" : "更换详情图"}
+      >
+        <div className="space-y-4">
+          <ImageUpload
+            value={quickImageUrl}
+            onChange={setQuickImageUrl}
+            placeholder="上传新图片或输入图片URL"
+            showCacheOptions
+          />
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => setQuickEdit({ open: false, mode: null, targetImage: null })}
+              className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={handleQuickSave}
+              className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              保存
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Confirm Dialog */}
