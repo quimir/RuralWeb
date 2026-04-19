@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../api/client";
-import { Leaf, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Leaf, Lock, User, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 export default function Login() {
   const [username, setUsername] = useState("farmer01");
@@ -36,6 +36,15 @@ export default function Login() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-gray-100">
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-600 transition-colors mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          返回
+        </button>
+
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
             <Leaf className="w-8 h-8" />
@@ -108,9 +117,12 @@ export default function Login() {
         <div className="mt-6 text-center text-sm text-gray-500">
           <p className="mb-2">
             还没有账号?{" "}
-            <a href="/register" className="font-medium text-green-600 hover:text-green-500">
+            <button
+              onClick={() => navigate("/register")}
+              className="font-medium text-green-600 hover:text-green-500"
+            >
               立即注册
-            </a>
+            </button>
           </p>
           测试账号: admin(管理员), farmer01(农户), bank01(金融商)
           <br />

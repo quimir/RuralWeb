@@ -5,7 +5,7 @@ import { formatCurrency } from "../lib/utils";
 import {
   ArrowLeft, MapPin, Star, Heart, Eye, Clock, Phone, Calendar,
   Send, Ticket, User, ChevronDown, ChevronUp, Edit, Trash2, Plus, Power,
-  CreditCard, Check, ShoppingBag
+  CreditCard, Check, ShoppingBag, Camera
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useToast } from "../store/useToast";
@@ -86,6 +86,10 @@ export default function TourismDetail() {
 
   // Expand description
   const [descExpanded, setDescExpanded] = useState(false);
+
+  // Quick cover image replace
+  const [quickCoverEdit, setQuickCoverEdit] = useState(false);
+  const [quickCoverUrl, setQuickCoverUrl] = useState("");
 
   // eslint-disable-next-line eqeqeq
   const isOwner = userInfo && spot && userInfo.id == spot.publisherId;
@@ -198,6 +202,24 @@ export default function TourismDetail() {
         addToast(res.data.message || "修改失败", "error");
       }
     } catch (err) { addToast("修改失败", "error"); }
+  };
+
+  const handleQuickSaveCover = async () => {
+    if (!quickCoverUrl) { addToast("请先选择图片", "error"); return; }
+    try {
+      const res = await api.put(`/tourism/spots/${id}`, {
+        title: spot.title, type: spot.type, address: spot.address,
+        summary: spot.summary, content: spot.content,
+        ticketPrice: spot.ticketPrice, openingHours: spot.openingHours,
+        contactPhone: spot.contactPhone,
+        coverImage: quickCoverUrl,
+      });
+      if (res.data.code === 200) {
+        addToast("封面图已更新", "success");
+        setQuickCoverEdit(false);
+        fetchSpot();
+      } else { addToast(res.data.message || "更新失败", "error"); }
+    } catch { addToast("更新失败", "error"); }
   };
 
   const handleDeleteSpot = () => {
@@ -568,8 +590,29 @@ export default function TourismDetail() {
       )}
 
       {/* Cover Image */}
-      <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-100">
-        <img src={spot.coverImage} alt={spot.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+      <div className={`relative aspect-video rounded-2xl overflow-hidden bg-gray-100 ${canManage ? 'group' : ''}`}>
+        <img
+          src={spot.coverImage}
+          alt={spot.title}
+          className={`w-full h-full object-cover transition-transform duration-300 ${canManage ? 'group-hover:scale-105' : ''}`}
+          referrerPolicy="no-referrer"
+        />
+        {/* Owner/Admin hover overlay: click to replace cover image */}
+        {canManage && (
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+            <button
+              onClick={() => { setQuickCoverUrl(spot.coverImage || ""); setQuickCoverEdit(true); }}
+              className="flex flex-col items-center gap-2 text-white hover:scale-110 transition-transform"
+            >
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 hover:bg-white/35 transition-colors shadow-lg">
+                <Camera className="w-6 h-6" />
+              </div>
+              <span className="text-sm font-semibold bg-black/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/20">
+                更换封面图
+              </span>
+            </button>
+          </div>
+        )}
         <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-sm font-medium">
           {SPOT_TYPES[spot.type] || spot.type}
         </div>
@@ -1140,6 +1183,22 @@ export default function TourismDetail() {
           <div className="flex gap-3 justify-end">
             <button onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">取消</button>
             <button onClick={confirmDialog.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">确定</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Quick Cover Image Replace Modal */}
+      <Modal isOpen={quickCoverEdit} onClose={() => setQuickCoverEdit(false)} title="更换封面图">
+        <div className="space-y-4">
+          <ImageUpload
+            value={quickCoverUrl}
+            onChange={setQuickCoverUrl}
+            placeholder="上传新封面图片"
+            showCacheOptions
+          />
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setQuickCoverEdit(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">取消</button>
+            <button type="button" onClick={handleQuickSaveCover} className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">保存</button>
           </div>
         </div>
       </Modal>
