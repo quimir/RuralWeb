@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import {
   User, Settings, LogOut, Shield, CreditCard, Edit, Lock, ShoppingBag, List, Plus, Users,
-  Check, XCircle, Eye, MapPin, FileText, ClipboardList, Landmark, ShieldCheck, Calendar, Ticket, Trash2, Heart, Star
+  Check, XCircle, Eye, MapPin, FileText, ClipboardList, Landmark, ShieldCheck, Calendar, Ticket, Trash2, Heart, Star, Camera
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { formatCurrency } from "../lib/utils";
 import { useToast } from "../store/useToast";
 import { Modal } from "../components/ui/Modal";
+import { ImageUpload } from "../components/ui/ImageUpload";
 
 const SPOT_TYPES = [
   { value: "PICKING_GARDEN", label: "采摘园" },
@@ -474,13 +475,22 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex items-center gap-6">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-2xl font-bold overflow-hidden">
+        <button
+          onClick={() => setActiveTab("settings")}
+          className="group relative w-20 h-20 rounded-full overflow-hidden bg-green-100 text-green-600 text-2xl font-bold shrink-0 cursor-pointer"
+          title="点击修改头像"
+        >
           {userInfo.avatar ? (
-            <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
+            <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" referrerPolicy="no-referrer" />
           ) : (
-            userInfo.nickname[0]
+            <span className="flex items-center justify-center w-full h-full transition-transform duration-200 group-hover:scale-110">
+              {userInfo.nickname[0]}
+            </span>
           )}
-        </div>
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <Camera className="w-6 h-6 text-white" />
+          </div>
+        </button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">{userInfo.nickname}</h1>
           <p className="text-gray-500">@{userInfo.username}</p>
@@ -1104,13 +1114,12 @@ export default function Profile() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">头像URL</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">头像</label>
+                  <ImageUpload
                     value={editForm.avatar}
-                    onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    placeholder="https://..."
+                    onChange={(url) => setEditForm({ ...editForm, avatar: url })}
+                    placeholder="上传头像图片"
+                    showCacheOptions
                   />
                 </div>
                 <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
