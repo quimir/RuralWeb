@@ -9,7 +9,7 @@ import { useToast } from "../store/useToast";
 import { Modal } from "../components/ui/Modal";
 import { ImageUpload } from "../components/ui/ImageUpload";
 import { BlockEditor } from "../components/ui/BlockEditor";
-import { RichDescription } from "../components/ui/RichDescription";
+import { RichDescription, getPlainDescription, parseBlocks } from "../components/ui/RichDescription";
 import { motion, AnimatePresence } from "motion/react";
 
 const IMAGE_TYPES = [
@@ -278,6 +278,8 @@ export default function ProductDetail() {
   const isAdmin = userInfo && userInfo.role === "ADMIN";
   const isOffShelf = product.status !== "ON_SALE";
   const currentImage = allImages[currentImageIndex] || allImages[0];
+  const descriptionBlocks = parseBlocks(product?.description || "");
+  const hasRichDescription = descriptionBlocks.length > 1 || descriptionBlocks.some(b => b.type === "image");
 
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -462,7 +464,7 @@ export default function ProductDetail() {
               <div><span className="font-bold text-gray-900">{product.salesCount}</span> 已售</div>
               <div><span className="font-bold text-gray-900">{product.buyerCount}</span> 回头客</div>
             </div>
-            <RichDescription content={product.description} />
+            <p className="text-gray-600 leading-relaxed">{getPlainDescription(product.description)}</p>
           </div>
 
           <div className="mt-auto space-y-6">
@@ -498,13 +500,13 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      {/* Detail Images Section (below main content) */}
-      {detailImages.length > 0 && (
+      {/* Bottom scrollable detail section: rich description + detail images */}
+      {(hasRichDescription || detailImages.length > 0) && (
         <div className="border-t border-gray-100 p-6 md:p-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <ImageIcon className="w-5 h-5 text-green-600" />
-              商品详情图
+              商品详情
             </h2>
             {isOwner && (
               <button
@@ -516,39 +518,48 @@ export default function ProductDetail() {
               </button>
             )}
           </div>
-          <div className="space-y-4">
-            {detailImages.map((img: any) => (
-              <div key={img.id} className="relative group">
-                <img
-                  src={img.imageUrl}
-                  alt={img.caption || "详情图"}
-                  className="w-full rounded-lg"
-                  referrerPolicy="no-referrer"
-                />
-                {img.caption && (
-                  <p className="text-xs text-gray-500 mt-1 text-center">{img.caption}</p>
-                )}
-                {isOwner && (
-                  <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => openQuickEdit("detail", img)}
-                      className="p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 shadow-lg"
-                      title="替换图片"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteDetailImage(img.id)}
-                      className="p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
-                      title="删除图片"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+
+          {/* Rich text description (text + image blocks from description field) */}
+          {hasRichDescription && (
+            <RichDescription content={product.description} className="mb-6" />
+          )}
+
+          {/* Detail images from API */}
+          {detailImages.length > 0 && (
+            <div className="space-y-4">
+              {detailImages.map((img: any) => (
+                <div key={img.id} className="relative group">
+                  <img
+                    src={img.imageUrl}
+                    alt={img.caption || "详情图"}
+                    className="w-full rounded-lg"
+                    referrerPolicy="no-referrer"
+                  />
+                  {img.caption && (
+                    <p className="text-xs text-gray-500 mt-1 text-center">{img.caption}</p>
+                  )}
+                  {isOwner && (
+                    <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openQuickEdit("detail", img)}
+                        className="p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 shadow-lg"
+                        title="替换图片"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDetailImage(img.id)}
+                        className="p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
+                        title="删除图片"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

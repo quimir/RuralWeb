@@ -23,6 +23,25 @@ export function serializeBlocks(blocks: ContentBlock[]): string {
   return JSON.stringify(blocks.filter(b => (b.type === "text" && b.content?.trim()) || (b.type === "image" && b.url)));
 }
 
+/**
+ * Extract plain text from a description field (JSON blocks or plain text).
+ * Used for product cards, list views, and brief summary areas.
+ */
+export function getPlainDescription(raw: string, maxLen = 200): string {
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const texts = parsed
+        .filter((b: ContentBlock) => b.type === "text" && b.content?.trim())
+        .map((b: ContentBlock) => b.content!.trim());
+      const joined = texts.join(" ");
+      return joined.length > maxLen ? joined.slice(0, maxLen) + "..." : joined;
+    }
+  } catch {}
+  return raw.length > maxLen ? raw.slice(0, maxLen) + "..." : raw;
+}
+
 interface RichDescriptionProps {
   content: string;
   className?: string;

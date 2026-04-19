@@ -4,6 +4,7 @@ import { formatCurrency } from "../lib/utils";
 import { ShoppingCart, Search, Filter, Plus, Trash2, X } from "lucide-react";
 import { ImageUpload } from "../components/ui/ImageUpload";
 import { BlockEditor } from "../components/ui/BlockEditor";
+import { getPlainDescription } from "../components/ui/RichDescription";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { motion, AnimatePresence } from "motion/react";
@@ -335,7 +336,7 @@ export default function Products() {
                   {product.name}
                 </h3>
                 <p className="text-xs text-gray-500 line-clamp-2 mb-3 flex-1">
-                  {product.description}
+                  {getPlainDescription(product.description, 80)}
                 </p>
 
                 <div className="flex items-end justify-between mt-auto">
