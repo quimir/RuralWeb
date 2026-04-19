@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { formatCurrency } from "../lib/utils";
 import { ShoppingCart, Search, Filter, Plus, Trash2, X } from "lucide-react";
 import { ImageUpload } from "../components/ui/ImageUpload";
+import { BlockEditor } from "../components/ui/BlockEditor";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { motion, AnimatePresence } from "motion/react";
@@ -462,13 +463,10 @@ export default function Products() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
-                <textarea
-                  required
-                  className="w-full border border-gray-300 rounded-lg p-2"
-                  rows={3}
+                <label className="block text-sm font-medium text-gray-700 mb-1">详细描述（支持文字+图片）</label>
+                <BlockEditor
                   value={newProduct.description}
-                  onChange={e => setNewProduct({...newProduct, description: e.target.value})}
+                  onChange={val => setNewProduct({...newProduct, description: val})}
                 />
               </div>
               <div className="flex gap-3 mt-6">

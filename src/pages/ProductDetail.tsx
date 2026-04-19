@@ -8,6 +8,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useToast } from "../store/useToast";
 import { Modal } from "../components/ui/Modal";
 import { ImageUpload } from "../components/ui/ImageUpload";
+import { BlockEditor } from "../components/ui/BlockEditor";
+import { RichDescription } from "../components/ui/RichDescription";
 import { motion, AnimatePresence } from "motion/react";
 
 const IMAGE_TYPES = [
@@ -460,7 +462,7 @@ export default function ProductDetail() {
               <div><span className="font-bold text-gray-900">{product.salesCount}</span> 已售</div>
               <div><span className="font-bold text-gray-900">{product.buyerCount}</span> 回头客</div>
             </div>
-            <p className="text-gray-600 leading-relaxed">{product.description}</p>
+            <RichDescription content={product.description} />
           </div>
 
           <div className="mt-auto space-y-6">
@@ -621,9 +623,11 @@ export default function ProductDetail() {
               placeholder="输入标签后按回车添加" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
-            <textarea required className="w-full border border-gray-300 rounded-lg p-2" rows={3}
-              value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} />
+            <label className="block text-sm font-medium text-gray-700 mb-1">详细描述（支持文字+图片）</label>
+            <BlockEditor
+              value={editForm.description}
+              onChange={val => setEditForm({...editForm, description: val})}
+            />
           </div>
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">取消</button>

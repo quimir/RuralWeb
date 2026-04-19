@@ -588,14 +588,20 @@ export default function Profile() {
                 </div>
               ) : isFarmerOrMerchant ? (
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <div
+                    className="p-4 bg-blue-50 rounded-xl border border-blue-100 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => navigate("/finance", { state: { tab: "myPolicies" } })}
+                  >
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 mb-3">
                       <Shield className="w-5 h-5" />
                     </div>
                     <h3 className="font-bold text-gray-900">我的保险</h3>
                     <p className="text-sm text-gray-500 mt-1">查看已投保的农业保险</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                  <div
+                    className="p-4 bg-purple-50 rounded-xl border border-purple-100 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => navigate("/finance", { state: { tab: "myLoanApps" } })}
+                  >
                     <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 mb-3">
                       <CreditCard className="w-5 h-5" />
                     </div>
