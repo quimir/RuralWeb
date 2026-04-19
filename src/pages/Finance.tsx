@@ -9,6 +9,7 @@ import {
   FileText, CreditCard, ClipboardList, Eye, DollarSign, Landmark, AlertCircle, Calendar
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useLocation } from "react-router-dom";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -102,6 +103,14 @@ export default function Finance() {
     name: "", type: "CROP", description: "", premium: "", premiumUnit: "元/亩",
     coverageAmount: "", coverageMonths: "", coverageScope: "", claimConditions: "",
   });
+
+  const location = useLocation();
+
+  // Jump to a specific tab when navigated here with state (e.g. from Profile cards)
+  useEffect(() => {
+    const targetTab = (location.state as any)?.tab;
+    if (targetTab) setActiveTab(targetTab);
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
