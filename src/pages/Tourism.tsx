@@ -86,6 +86,9 @@ export default function Tourism() {
     if (userInfo && ["MERCHANT", "FARMER"].includes(userInfo.role)) {
       fetchRejectedSpots();
     }
+    if (userInfo?.role === "ADMIN") {
+      fetchPendingSpots();
+    }
   }, [typeFilter]);
 
   const fetchFeaturedRoute = async () => {
@@ -226,11 +229,11 @@ export default function Tourism() {
       )}
 
       {/* Admin Audit Banner */}
-      {isAdmin && (
+      {isAdmin && pendingSpots.length > 0 && (
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-blue-700">
              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-             <span className="text-sm font-medium">管理员：查看待审核的景点信息</span>
+             <span className="text-sm font-medium">管理员：有 {pendingSpots.length} 个景点待审核</span>
           </div>
           <button
             onClick={() => { setShowAuditPanel(true); fetchPendingSpots(); }}
